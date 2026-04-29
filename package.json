@@ -1,0 +1,23 @@
+{
+  "name": "cooliwrapper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ZIP upload wrapper for deploying resources through the Coolify API.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "lint": "node --check src/*.js src/routes/*.js test/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^2.0.2",
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,9 @@
+.env
+.git
+.codex
+node_modules
+uploads
+samples
+test
+*.log
+README.md
