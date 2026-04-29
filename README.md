@@ -2,6 +2,10 @@
 
 Small HTTP API that accepts a ZIP file, extracts it safely, and creates Coolify resources on `coolify.mati.ss`.
 
+Public deployment: `https://uigendeploy.mati.ss`
+
+Full API and behavior spec: [SPEC.md](./SPEC.md)
+
 ## Default Flow
 
 Static HTML ZIPs are the default.
