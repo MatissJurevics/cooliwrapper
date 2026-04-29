@@ -2,12 +2,14 @@ import express from "express";
 import { config } from "./config.js";
 import { CoolifyClient } from "./coolifyClient.js";
 import { HttpError } from "./errors.js";
+import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createCoolifyRouter } from "./routes/coolify.js";
 import { createDeploymentsRouter } from "./routes/deployments.js";
 
 const app = express();
 const coolifyClient = new CoolifyClient(config.coolify);
 
+app.set("trust proxy", true);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_request, response) => {
@@ -26,6 +28,7 @@ app.get("/coolify/health", async (_request, response, next) => {
   }
 });
 
+app.use("/artifacts", createArtifactsRouter({ config }));
 app.use(requireWrapperAuth(config.wrapperApiKey));
 app.use("/coolify", createCoolifyRouter({ config, coolifyClient }));
 app.use("/deployments", createDeploymentsRouter({ config, coolifyClient }));

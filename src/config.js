@@ -40,6 +40,7 @@ export function normalizeCoolifyBaseUrl(rawBaseUrl) {
 export const config = {
   host: process.env.HOST || "0.0.0.0",
   port: numberFromEnv("PORT", 3000),
+  publicBaseUrl: process.env.PUBLIC_BASE_URL || "",
   wrapperApiKey: process.env.WRAPPER_API_KEY || "",
   coolify: {
     baseUrl: normalizeCoolifyBaseUrl(process.env.COOLIFY_BASE_URL),
@@ -60,6 +61,7 @@ export const config = {
   },
   staticSites: {
     storageRoot: process.env.STATIC_SITE_STORAGE_ROOT || "uploads/static-sites",
+    artifactStorageRoot: process.env.STATIC_SITE_ARTIFACT_STORAGE_ROOT || "uploads/artifacts",
     domainSuffix: process.env.STATIC_SITE_DOMAIN_SUFFIX || "",
     domainScheme: process.env.STATIC_SITE_DOMAIN_SCHEME || "https",
     maxArchiveBytes: numberFromEnv("MAX_STATIC_ARCHIVE_BYTES", 25 * 1024 * 1024)

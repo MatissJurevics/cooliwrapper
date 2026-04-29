@@ -24,6 +24,7 @@ Output:
 - a generated resource name based on the HTML title
 - a public URL returned by Coolify
 - an extracted local copy retained by the wrapper container volume
+- a tokenized build artifact retained by the wrapper container volume
 
 ## Runtime Behavior
 
@@ -55,14 +56,28 @@ Cooliwrapper Sample -> cooliwrapper-sample-b41b7d8c
 /app/uploads/static-sites/<resource-slug>
 ```
 
-8. The wrapper builds a Dockerfile that:
+8. The wrapper creates a compressed artifact at:
+
+```text
+/app/uploads/artifacts/<upload-id>.tgz
+```
+
+9. The wrapper creates a random artifact token and exposes the archive at:
+
+```text
+https://uigendeploy.mati.ss/artifacts/<upload-id>/site.tgz?token=<artifact-token>
+```
+
+10. The wrapper builds a small Dockerfile that:
    - starts from `nginx:alpine`
-   - embeds the static site as a compressed archive
+   - downloads the tokenized artifact URL with Dockerfile `ADD`
    - extracts it into `/usr/share/nginx/html`
    - serves it on port `80`
-9. The Dockerfile is base64 encoded.
-10. The wrapper calls Coolify's Dockerfile application create endpoint.
-11. Coolify creates and deploys a new application resource.
+11. The Dockerfile is base64 encoded.
+12. The wrapper calls Coolify's Dockerfile application create endpoint.
+13. Coolify creates and deploys a new application resource.
+
+The artifact-download design avoids passing the full static site through Coolify's command line. This prevents OS-level `Argument list too long` failures during Coolify deployment.
 
 ## Authentication
 
@@ -70,6 +85,10 @@ Public health endpoints do not require wrapper auth:
 
 - `GET /health`
 - `GET /coolify/health`
+
+Artifact downloads do not use `WRAPPER_API_KEY`, because Coolify's build container needs to fetch them directly. They are protected by a random per-upload token in the artifact URL:
+
+- `GET /artifacts/:artifactId/site.tgz?token=<artifact-token>`
 
 Protected endpoints require wrapper auth only when `WRAPPER_API_KEY` is configured:
 
@@ -222,13 +241,39 @@ Success response:
     "title": "Cooliwrapper Sample",
     "resourceSlug": "cooliwrapper-sample-b41b7d8c",
     "path": "/app/uploads/static-sites/cooliwrapper-sample-b41b7d8c",
-    "indexPath": "/app/uploads/static-sites/cooliwrapper-sample-b41b7d8c/index.html"
+    "indexPath": "/app/uploads/static-sites/cooliwrapper-sample-b41b7d8c/index.html",
+    "artifactPath": "/app/uploads/artifacts/b41b7d8c-0c13-4af5-8d48-747ce8b4c567.tgz",
+    "artifactBytes": 723,
+    "artifactUrl": "https://uigendeploy.mati.ss/artifacts/b41b7d8c-0c13-4af5-8d48-747ce8b4c567/site.tgz?token=<artifact-token>"
   },
   "warnings": [
-    "Static HTML was deployed through Coolify's Dockerfile application API because Coolify does not expose a direct static ZIP upload endpoint."
+    "Static HTML was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized static-site artifact from this wrapper during the Coolify build."
   ]
 }
 ```
+
+### `GET /artifacts/:artifactId/site.tgz`
+
+Downloads a static-site build artifact. This endpoint is primarily for Coolify build containers, not end users.
+
+Query parameters:
+
+- `token`: required artifact token generated during upload
+
+Request:
+
+```bash
+curl "https://uigendeploy.mati.ss/artifacts/<artifact-id>/site.tgz?token=<artifact-token>" \
+  -o site.tgz
+```
+
+Response:
+
+```text
+application/gzip
+```
+
+Invalid IDs or tokens return `404`.
 
 ## ZIP Requirements
 
@@ -315,6 +360,7 @@ COOLIFY_PROJECT_UUID=<target-project-uuid>
 COOLIFY_SERVER_UUID=<target-server-uuid>
 COOLIFY_ENVIRONMENT_NAME=production
 COOLIFY_DESTINATION_UUID=<target-destination-uuid>
+PUBLIC_BASE_URL=https://uigendeploy.mati.ss
 ```
 
 Optional environment variables:
@@ -323,6 +369,7 @@ Optional environment variables:
 WRAPPER_API_KEY=<wrapper-client-token>
 STATIC_SITE_DOMAIN_SUFFIX=
 STATIC_SITE_DOMAIN_SCHEME=https
+STATIC_SITE_ARTIFACT_STORAGE_ROOT=/app/uploads/artifacts
 MAX_ZIP_BYTES=104857600
 MAX_EXTRACTED_BYTES=524288000
 MAX_EXTRACTED_FILES=5000

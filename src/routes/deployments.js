@@ -44,7 +44,8 @@ export function createDeploymentsRouter({ config, coolifyClient }) {
         requestManifest,
         defaults: config.coolify.defaults,
         staticSites: config.staticSites,
-        uploadId
+        uploadId,
+        publicBaseUrl: config.publicBaseUrl || getRequestBaseUrl(request)
       });
       const coolify = await executeDeploymentPlan(plan, coolifyClient);
 
@@ -94,6 +95,10 @@ function parseFieldValue(value) {
   if (value === "false") return false;
   if (/^-?\d+$/.test(value)) return Number(value);
   return value;
+}
+
+function getRequestBaseUrl(request) {
+  return `${request.protocol}://${request.get("host")}`;
 }
 
 async function cleanupUpload({ uploadFile, workDir, keepUploads }) {

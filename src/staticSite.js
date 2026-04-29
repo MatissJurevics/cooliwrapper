@@ -1,11 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { HttpError } from "./errors.js";
 
 const TAR_BLOCK_SIZE = 512;
-const DOCKERFILE_BASE64_LINE_LENGTH = 120;
-const DOCKERFILE_LINES_PER_RUN = 100;
 
 export async function prepareStaticSite({ extractDir, uploadId, storageRoot }) {
   const indexPath = await findStaticIndexHtml(extractDir);
@@ -43,7 +42,7 @@ export async function prepareStaticSite({ extractDir, uploadId, storageRoot }) {
   };
 }
 
-export async function buildStaticSiteDockerfile(siteRoot, { maxArchiveBytes }) {
+export async function createStaticSiteArtifact(siteRoot, { artifactId, artifactStorageRoot, maxArchiveBytes }) {
   const archive = gzipSync(await createTarArchive(siteRoot));
 
   if (archive.length > maxArchiveBytes) {
@@ -53,14 +52,54 @@ export async function buildStaticSiteDockerfile(siteRoot, { maxArchiveBytes }) {
     );
   }
 
-  const base64 = archive.toString("base64");
-  const base64Lines = chunkString(base64, DOCKERFILE_BASE64_LINE_LENGTH);
+  const token = randomBytes(32).toString("hex");
+  const artifactPath = path.join(artifactStorageRoot, `${artifactId}.tgz`);
+  const metadataPath = path.join(artifactStorageRoot, `${artifactId}.json`);
 
+  await fs.promises.mkdir(artifactStorageRoot, { recursive: true });
+  await fs.promises.writeFile(artifactPath, archive, { flag: "wx" });
+  await fs.promises.writeFile(
+    metadataPath,
+    JSON.stringify(
+      {
+        id: artifactId,
+        token,
+        bytes: archive.length,
+        createdAt: new Date().toISOString()
+      },
+      null,
+      2
+    ),
+    { flag: "wx" }
+  );
+
+  return {
+    id: artifactId,
+    token,
+    bytes: archive.length,
+    path: artifactPath,
+    metadataPath
+  };
+}
+
+export function buildStaticSiteArtifactUrl(publicBaseUrl, artifact) {
+  if (!publicBaseUrl) {
+    throw new HttpError(500, "PUBLIC_BASE_URL is required for static HTML deployments");
+  }
+
+  const baseUrl = publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`;
+  const url = new URL(`artifacts/${artifact.id}/site.tgz`, baseUrl);
+  url.searchParams.set("token", artifact.token);
+  return url.toString();
+}
+
+export function buildStaticSiteDockerfile(artifactUrl) {
   return [
     "FROM nginx:alpine",
-    "RUN rm -rf /usr/share/nginx/html/* && : > /tmp/site.tgz.b64",
-    ...buildAppendRuns(base64Lines),
-    "RUN base64 -d /tmp/site.tgz.b64 | tar -xz -C /usr/share/nginx/html && rm /tmp/site.tgz.b64",
+    `ADD ${artifactUrl} /tmp/site.tgz`,
+    "RUN rm -rf /usr/share/nginx/html/* \\",
+    "  && tar -xzf /tmp/site.tgz -C /usr/share/nginx/html \\",
+    "  && rm /tmp/site.tgz",
     ""
   ].join("\n");
 }
@@ -205,26 +244,6 @@ function writeOctal(buffer, value, offset, length) {
 function padLength(size) {
   const remainder = size % TAR_BLOCK_SIZE;
   return remainder === 0 ? 0 : TAR_BLOCK_SIZE - remainder;
-}
-
-function buildAppendRuns(lines) {
-  const runs = [];
-
-  for (let index = 0; index < lines.length; index += DOCKERFILE_LINES_PER_RUN) {
-    const batch = lines.slice(index, index + DOCKERFILE_LINES_PER_RUN);
-    const quotedLines = batch.map((line) => `'${line}'`).join(" ");
-    runs.push(`RUN printf '%s\\n' ${quotedLines} >> /tmp/site.tgz.b64`);
-  }
-
-  return runs;
-}
-
-function chunkString(value, size) {
-  const chunks = [];
-  for (let index = 0; index < value.length; index += size) {
-    chunks.push(value.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function toPosixPath(value) {

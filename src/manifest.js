@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { HttpError } from "./errors.js";
 import {
+  buildStaticSiteArtifactUrl,
   buildStaticSiteDockerfile,
   buildStaticSiteDomain,
+  createStaticSiteArtifact,
   findStaticIndexHtml,
   prepareStaticSite
 } from "./staticSite.js";
@@ -24,7 +26,14 @@ const APPLICATION_MODES = new Set([
   "dockercompose"
 ]);
 
-export async function buildDeploymentPlan({ extractDir, requestManifest, defaults, staticSites, uploadId }) {
+export async function buildDeploymentPlan({
+  extractDir,
+  requestManifest,
+  defaults,
+  staticSites,
+  uploadId,
+  publicBaseUrl
+}) {
   const embeddedManifest = await readEmbeddedManifest(extractDir);
   const autoManifest = await detectManifest(extractDir);
   const manifest = deepMerge(autoManifest, embeddedManifest, requestManifest);
@@ -39,7 +48,7 @@ export async function buildDeploymentPlan({ extractDir, requestManifest, default
 
   switch (manifest.type) {
     case "static-html":
-      return buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites, uploadId);
+      return buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites, uploadId, publicBaseUrl);
     case "service":
       return buildServicePlan(manifest, extractDir, defaults);
     case "application":
@@ -51,9 +60,20 @@ export async function buildDeploymentPlan({ extractDir, requestManifest, default
   }
 }
 
-async function buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites = {}, uploadId = "manual") {
+async function buildStaticHtmlPlan(
+  manifest,
+  extractDir,
+  defaults,
+  staticSites = {},
+  uploadId = "manual",
+  publicBaseUrl = ""
+) {
   if (!staticSites.storageRoot) {
     throw new HttpError(500, "STATIC_SITE_STORAGE_ROOT is required for static HTML deployments");
+  }
+
+  if (!staticSites.artifactStorageRoot) {
+    throw new HttpError(500, "STATIC_SITE_ARTIFACT_STORAGE_ROOT is required for static HTML deployments");
   }
 
   const site = await prepareStaticSite({
@@ -61,6 +81,12 @@ async function buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites =
     uploadId,
     storageRoot: staticSites.storageRoot
   });
+  const artifact = await createStaticSiteArtifact(site.localPath, {
+    artifactId: uploadId,
+    artifactStorageRoot: staticSites.artifactStorageRoot,
+    maxArchiveBytes: staticSites.maxArchiveBytes
+  });
+  const artifactUrl = buildStaticSiteArtifactUrl(publicBaseUrl, artifact);
 
   const domain = buildStaticSiteDomain(site.resourceSlug, staticSites);
   const coolifyOverrides = manifest.coolify || {};
@@ -71,11 +97,7 @@ async function buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites =
     description: manifest.description || `Static HTML site from ${site.title}`,
     instant_deploy: manifest.instant_deploy ?? manifest.instantDeploy ?? true,
     build_pack: "dockerfile",
-    dockerfile: encodeBase64(
-      await buildStaticSiteDockerfile(site.localPath, {
-        maxArchiveBytes: staticSites.maxArchiveBytes
-      })
-    ),
+    dockerfile: encodeBase64(buildStaticSiteDockerfile(artifactUrl)),
     ports_exposes: "80",
     is_force_https_enabled: true,
     autogenerate_domain: domains ? undefined : true,
@@ -92,10 +114,13 @@ async function buildStaticHtmlPlan(manifest, extractDir, defaults, staticSites =
       title: site.title,
       resourceSlug: site.resourceSlug,
       path: site.localPath,
-      indexPath: site.indexPath
+      indexPath: site.indexPath,
+      artifactPath: artifact.path,
+      artifactBytes: artifact.bytes,
+      artifactUrl
     },
     warnings: [
-      "Static HTML was deployed through Coolify's Dockerfile application API because Coolify does not expose a direct static ZIP upload endpoint."
+      "Static HTML was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized static-site artifact from this wrapper during the Coolify build."
     ]
   };
 }

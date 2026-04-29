@@ -15,10 +15,11 @@ When a ZIP contains `index.html`, the wrapper:
 - finds the shallowest `index.html`
 - reads its `<title>`
 - stores the extracted site under `uploads/static-sites/<title-slug>-<id>`
+- writes a compressed build artifact under `uploads/artifacts`
 - creates a new Coolify Dockerfile application named from that title
 - serves the site with `nginx`
 
-Coolify's API does not currently expose direct static ZIP/file upload. This wrapper uses the closest API-only path: it generates a Dockerfile containing the static site archive and sends it to Coolify's Dockerfile application endpoint.
+Coolify's API does not currently expose direct static ZIP/file upload. This wrapper uses the closest API-only path: it generates a small Dockerfile that downloads a tokenized static-site artifact from this wrapper during the Coolify build.
 
 ## Setup
 
@@ -49,7 +50,8 @@ Optional:
 
 - `WRAPPER_API_KEY`: when set, clients must send `x-api-key: <key>` or `Authorization: Bearer <key>`.
 - `STATIC_SITE_DOMAIN_SUFFIX`: when set, domains are derived from the HTML title, for example `launch-page-a1b2c3d4.example.com`.
-- `MAX_STATIC_ARCHIVE_BYTES`: compressed static site limit for the generated Dockerfile payload. Default is `26214400`.
+- `PUBLIC_BASE_URL`: public URL used by Coolify builds to download generated artifacts. In production this is `https://uigendeploy.mati.ss`.
+- `MAX_STATIC_ARCHIVE_BYTES`: compressed static site artifact size limit. Default is `26214400`.
 
 ## Finding Coolify UUIDs
 

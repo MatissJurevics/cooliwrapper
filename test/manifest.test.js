@@ -82,6 +82,7 @@ test("allows existing service updates without create-only Coolify fields", async
 test("auto-detects static HTML, stores it locally, and creates dockerfile app plan", async () => {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-test-"));
   const storageRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-storage-"));
+  const artifactStorageRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-artifacts-"));
 
   try {
     await fs.promises.writeFile(
@@ -101,25 +102,34 @@ test("auto-detects static HTML, stores it locally, and creates dockerfile app pl
       },
       staticSites: {
         storageRoot,
+        artifactStorageRoot,
         domainSuffix: "example.com",
         domainScheme: "https",
         maxArchiveBytes: 1024 * 1024
       },
-      uploadId: "12345678-aaaa-bbbb-cccc-123456789abc"
+      uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
+      publicBaseUrl: "https://uigendeploy.mati.ss"
     });
 
+    const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "launch-page-12345678");
     assert.equal(plan.body.domains, "https://launch-page-12345678.example.com");
-    assert.match(Buffer.from(plan.body.dockerfile, "base64").toString("utf8"), /FROM nginx:alpine/);
+    assert.match(dockerfile, /FROM nginx:alpine/);
+    assert.match(dockerfile, /ADD https:\/\/uigendeploy\.mati\.ss\/artifacts\//);
+    assert.match(dockerfile, /https:\/\/uigendeploy\.mati\.ss\/artifacts\/12345678-aaaa-bbbb-cccc-123456789abc\/site\.tgz\?token=/);
     assert.equal(plan.local.title, "Launch Page");
+    assert.equal(plan.local.artifactPath, path.join(artifactStorageRoot, "12345678-aaaa-bbbb-cccc-123456789abc.tgz"));
+    assert.ok(plan.local.artifactBytes > 0);
     assert.equal(
       await fs.promises.readFile(path.join(storageRoot, "launch-page-12345678", "style.css"), "utf8"),
       "body { color: black; }\n"
     );
+    assert.equal((await fs.promises.stat(plan.local.artifactPath)).isFile(), true);
   } finally {
     await fs.promises.rm(root, { recursive: true, force: true });
     await fs.promises.rm(storageRoot, { recursive: true, force: true });
+    await fs.promises.rm(artifactStorageRoot, { recursive: true, force: true });
   }
 });
