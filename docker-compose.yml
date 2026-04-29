@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cooliwrapper
     restart: unless-stopped
     env_file:
       - .env
@@ -11,10 +10,10 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       STATIC_SITE_STORAGE_ROOT: /app/uploads/static-sites
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     volumes:
-      - ./uploads:/app/uploads
+      - cooliwrapper_uploads:/app/uploads
     healthcheck:
       test:
         - CMD
@@ -25,3 +24,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  cooliwrapper_uploads:

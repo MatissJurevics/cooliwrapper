@@ -24,6 +24,14 @@ npm install
 npm start
 ```
 
+For local Docker Compose:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+```
+
+`docker-compose.yml` is Coolify-safe and does not publish host port `3000`. Coolify should route traffic through its proxy to the container's internal port `3000`.
+
 Required Coolify values:
 
 - `COOLIFY_TOKEN`: a Coolify API token from Keys & Tokens. It needs write permissions for create/update/deploy operations.
