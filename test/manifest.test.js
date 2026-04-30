@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { buildDeploymentPlan } from "../src/manifest.js";
+import { buildDeploymentPlan, executeDeploymentPlan } from "../src/manifest.js";
 
 test("auto-detects compose files as service deployments", async () => {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-test-"));
@@ -77,6 +77,74 @@ test("allows existing service updates without create-only Coolify fields", async
   } finally {
     await fs.promises.rm(root, { recursive: true, force: true });
   }
+});
+
+test("runs application post-create update and deploy steps", async () => {
+  const calls = [];
+  const result = await executeDeploymentPlan(
+    {
+      type: "application",
+      mode: "dockerfile",
+      body: {
+        name: "api",
+        instant_deploy: false
+      },
+      postCreateUpdate: {
+        ports_exposes: "8080"
+      },
+      postCreateProxyPort: "8080",
+      postCreateDeploy: true
+    },
+    {
+      async createApplication(mode, body) {
+        calls.push(["create", mode, body]);
+        return { uuid: "app-uuid" };
+      },
+      async getApplication(uuid) {
+        calls.push(["get", uuid]);
+        return {
+          custom_labels: Buffer.from(
+            [
+              "traefik.http.services.http-0-app.loadbalancer.server.port=80",
+              "caddy_0.handle_path.0_reverse_proxy={{upstreams 80}}"
+            ].join("\n"),
+            "utf8"
+          ).toString("base64")
+        };
+      },
+      async updateApplication(uuid, body) {
+        calls.push(["update", uuid, body]);
+        return { uuid };
+      },
+      async deploy(body) {
+        calls.push(["deploy", body]);
+        return { deployment_uuid: "deployment-uuid" };
+      }
+    }
+  );
+
+  assert.deepEqual(calls, [
+    ["create", "dockerfile", { name: "api", instant_deploy: false }],
+    ["get", "app-uuid"],
+    [
+      "update",
+      "app-uuid",
+      {
+        ports_exposes: "8080",
+        custom_labels: Buffer.from(
+          [
+            "traefik.http.services.http-0-app.loadbalancer.server.port=8080",
+            "caddy_0.handle_path.0_reverse_proxy={{upstreams 8080}}"
+          ].join("\n"),
+          "utf8"
+        ).toString("base64")
+      }
+    ],
+    ["deploy", { uuid: "app-uuid" }]
+  ]);
+  assert.equal(result.result.uuid, "app-uuid");
+  assert.equal(result.result.postCreate.update.uuid, "app-uuid");
+  assert.equal(result.result.postCreate.deploy.deployment_uuid, "deployment-uuid");
 });
 
 test("auto-detects static HTML, stores it locally, and creates dockerfile app plan", async () => {

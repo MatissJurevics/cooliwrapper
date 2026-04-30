@@ -67,6 +67,10 @@ export class CoolifyClient {
     return this.request("GET", "/resources");
   }
 
+  getApplication(uuid) {
+    return this.request("GET", `/applications/${encodeURIComponent(uuid)}`);
+  }
+
   listProjectEnvironments(projectUuid) {
     return this.request("GET", `/projects/${encodeURIComponent(projectUuid)}/environments`);
   }

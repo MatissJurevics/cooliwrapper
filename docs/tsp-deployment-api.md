@@ -274,4 +274,6 @@ The deployment API generates a Dockerfile that:
 6. Uses the generated package metadata instead of special-casing `requirements.txt`.
 7. Starts the backend with `python -m app`.
 
+The deployment wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port and generated proxy labels to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy aligned with the FastAPI port.
+
 Generated SQLite databases are not durable by default. For production persistence, generate the backend to use an external database or add persistent storage support.

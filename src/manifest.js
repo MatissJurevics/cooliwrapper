@@ -142,7 +142,7 @@ export async function executeDeploymentPlan(plan, coolifyClient) {
   if (plan.type === "application") {
     const result = plan.uuid
       ? await coolifyClient.updateApplication(plan.uuid, plan.body)
-      : await coolifyClient.createApplication(plan.mode, plan.body);
+      : await createApplicationWithPostCreateSteps(plan, coolifyClient);
 
     return {
       action: plan.uuid ? "application.updated" : `application.${plan.mode}.created`,
@@ -163,6 +163,54 @@ export async function executeDeploymentPlan(plan, coolifyClient) {
   }
 
   throw new HttpError(500, `Unhandled deployment plan type: ${plan.type}`);
+}
+
+async function createApplicationWithPostCreateSteps(plan, coolifyClient) {
+  const result = await coolifyClient.createApplication(plan.mode, plan.body);
+  const uuid = result?.uuid;
+  const postCreate = {};
+
+  if (uuid && plan.postCreateUpdate) {
+    const updateBody = await buildPostCreateUpdateBody(plan, uuid, coolifyClient);
+    postCreate.update = await coolifyClient.updateApplication(uuid, updateBody);
+  }
+
+  if (uuid && plan.postCreateDeploy) {
+    postCreate.deploy = await coolifyClient.deploy({ uuid });
+  }
+
+  if (Object.keys(postCreate).length === 0) {
+    return result;
+  }
+
+  return {
+    ...result,
+    postCreate
+  };
+}
+
+async function buildPostCreateUpdateBody(plan, uuid, coolifyClient) {
+  const updateBody = {
+    ...plan.postCreateUpdate
+  };
+
+  if (plan.postCreateProxyPort && coolifyClient.getApplication) {
+    const application = await coolifyClient.getApplication(uuid);
+    updateBody.custom_labels = rewriteCoolifyProxyLabels(application?.custom_labels, plan.postCreateProxyPort);
+  }
+
+  return compactObject(updateBody);
+}
+
+function rewriteCoolifyProxyLabels(encodedLabels, port) {
+  if (!encodedLabels) return undefined;
+
+  const labels = Buffer.from(encodedLabels, "base64")
+    .toString("utf8")
+    .replace(/(loadbalancer\.server\.port=)\d+/g, `$1${port}`)
+    .replace(/(upstreams )\d+/g, `$1${port}`);
+
+  return Buffer.from(labels, "utf8").toString("base64");
 }
 
 async function buildServicePlan(manifest, extractDir, defaults) {

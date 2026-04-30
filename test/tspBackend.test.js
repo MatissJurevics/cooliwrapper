@@ -26,8 +26,17 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
     assert.equal(plan.body.name, "todoapp-api-12345678");
     assert.equal(plan.body.domains, "https://todoapp-api-12345678.mati.ss");
     assert.equal("autogenerate_domain" in plan.body, false);
+    assert.equal(plan.body.instant_deploy, false);
     assert.equal(plan.body.ports_exposes, "8080");
     assert.equal(plan.body.health_check_path, "/health");
+    assert.deepEqual(plan.postCreateUpdate, {
+      ports_exposes: "8080",
+      health_check_path: "/health",
+      health_check_port: "8080",
+      health_check_enabled: true
+    });
+    assert.equal(plan.postCreateProxyPort, "8080");
+    assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM ghcr\.io\/astral-sh\/uv:python3\.12-bookworm-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
     assert.match(dockerfile, /WORKDIR \/bundle\/services\/api/);
@@ -61,6 +70,9 @@ test("keeps legacy repository/services/api TSP backends working", async () => {
     const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
     assert.equal(plan.body.name, "todoapp-api-12345678");
     assert.equal(plan.body.domains, "https://todoapp-api-12345678.mati.ss");
+    assert.equal(plan.body.instant_deploy, false);
+    assert.equal(plan.postCreateUpdate.ports_exposes, "8080");
+    assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM python:3\.11-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
     assert.match(dockerfile, /repository\/services\/api/);

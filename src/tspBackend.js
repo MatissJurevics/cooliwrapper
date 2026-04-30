@@ -59,11 +59,12 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   const coolifyOverrides = requestManifest.coolify || {};
   const domain = buildStaticSiteDomain(resourceSlug, staticSites);
   const domains = coolifyOverrides.domains || domain;
+  const desiredInstantDeploy = requestManifest.instant_deploy ?? requestManifest.instantDeploy ?? true;
   const body = withDefaults(defaults, {
     ...coolifyOverrides,
     name: resourceSlug,
     description: requestManifest.description || `TSP Python backend from ${projectName}`,
-    instant_deploy: requestManifest.instant_deploy ?? requestManifest.instantDeploy ?? true,
+    instant_deploy: false,
     build_pack: "dockerfile",
     dockerfile: encodeBase64(layout.buildDockerfile({ artifactUrl, port })),
     ports_exposes: port,
@@ -80,6 +81,14 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     type: "application",
     mode: "dockerfile",
     body: compactObject(body),
+    postCreateUpdate: compactObject({
+      ports_exposes: port,
+      health_check_path: body.health_check_path,
+      health_check_port: port,
+      health_check_enabled: true
+    }),
+    postCreateProxyPort: port,
+    postCreateDeploy: desiredInstantDeploy,
     local: {
       projectName,
       servicePath: layout.servicePath,
