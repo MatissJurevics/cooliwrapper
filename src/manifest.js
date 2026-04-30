@@ -194,12 +194,40 @@ async function buildPostCreateUpdateBody(plan, uuid, coolifyClient) {
     ...plan.postCreateUpdate
   };
 
-  if (plan.postCreateProxyPort && coolifyClient.getApplication) {
+  if ((plan.postCreateProxyPort || plan.postCreateDomainPort) && coolifyClient.getApplication) {
     const application = await coolifyClient.getApplication(uuid);
-    updateBody.custom_labels = rewriteCoolifyProxyLabels(application?.custom_labels, plan.postCreateProxyPort);
+
+    if (plan.postCreateProxyPort) {
+      updateBody.custom_labels = rewriteCoolifyProxyLabels(application?.custom_labels, plan.postCreateProxyPort);
+    }
+
+    if (plan.postCreateDomainPort) {
+      updateBody.domains = addPortToDomains(plan.body?.domains || application?.fqdn || application?.domains, plan.postCreateDomainPort);
+    }
   }
 
   return compactObject(updateBody);
+}
+
+function addPortToDomains(domains, port) {
+  if (!domains) return undefined;
+
+  return String(domains)
+    .split(",")
+    .map((domain) => addPortToDomain(domain.trim(), port))
+    .join(",");
+}
+
+function addPortToDomain(domain, port) {
+  if (!domain) return domain;
+
+  try {
+    const url = new URL(domain);
+    url.port = String(port);
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return domain.includes(":") ? domain : `${domain}:${port}`;
+  }
 }
 
 function rewriteCoolifyProxyLabels(encodedLabels, port) {

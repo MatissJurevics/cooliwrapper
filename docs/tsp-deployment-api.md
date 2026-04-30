@@ -80,7 +80,7 @@ todoapp-api-<upload-prefix>
 and assigns a public domain like:
 
 ```text
-https://todoapp-api-<upload-prefix>.mati.ss
+http://todoapp-api-<upload-prefix>.mati.ss:8080
 ```
 
 The upload prefix is derived from the generated upload ID, so every deployment gets a unique resource name and domain.
@@ -97,7 +97,7 @@ Send `manifest` when the generator app needs to override defaults:
   "health_check_path": "/health",
   "instant_deploy": true,
   "coolify": {
-    "domains": "https://todo-api.mati.ss"
+    "domains": "http://todo-api.mati.ss:8080"
   }
 }
 ```
@@ -109,7 +109,7 @@ Common fields:
 - `port`: exposed backend port. Defaults to `8080`.
 - `health_check_path`: Coolify health check path. Defaults to `/health`.
 - `instant_deploy`: starts deployment immediately. Defaults to `true`.
-- `coolify.domains`: explicit public domain. If omitted, the API generates `https://<resource-slug>.mati.ss`.
+- `coolify.domains`: explicit public domain. If omitted, the API generates `http://<resource-slug>.mati.ss:8080`.
 
 Coolify project/server/destination defaults are configured server-side, so normal generator clients should not send those values.
 
@@ -213,7 +213,7 @@ Successful requests return `202 Accepted`.
   },
   "coolify": {
     "uuid": "coolify-resource-uuid",
-    "domains": "https://todoapp-api-12345678.mati.ss"
+    "domains": "http://todoapp-api-12345678.mati.ss:8080"
   },
   "local": {
     "projectName": "TodoApp",

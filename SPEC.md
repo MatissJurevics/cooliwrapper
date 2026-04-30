@@ -345,7 +345,7 @@ Success response shape:
   },
   "coolify": {
     "uuid": "coolify-resource-uuid",
-    "domains": "https://todoapp-api-12345678.mati.ss"
+    "domains": "http://todoapp-api-12345678.mati.ss:8080"
   },
   "local": {
     "projectName": "TodoApp",
@@ -391,7 +391,7 @@ Optional manifest override:
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://todo-api.mati.ss"
+    "domains": "http://todo-api.mati.ss:8080"
   }
 }
 ```

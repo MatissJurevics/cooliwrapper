@@ -130,7 +130,7 @@ python -m app
 
 Legacy archives that use `repository/services/api` are still accepted as a fallback.
 
-The backend deployment uses the same generated domain convention: `https://<resource-slug>.mati.ss`.
+The backend deployment writes the backend port into the Coolify domain value, for example `http://<resource-slug>.mati.ss:8080`.
 
 The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
 

@@ -93,6 +93,7 @@ test("runs application post-create update and deploy steps", async () => {
         ports_exposes: "8080"
       },
       postCreateProxyPort: "8080",
+      postCreateDomainPort: "8080",
       postCreateDeploy: true
     },
     {
@@ -103,6 +104,7 @@ test("runs application post-create update and deploy steps", async () => {
       async getApplication(uuid) {
         calls.push(["get", uuid]);
         return {
+          fqdn: "http://app.example.test",
           custom_labels: Buffer.from(
             [
               "traefik.http.services.http-0-app.loadbalancer.server.port=80",
@@ -131,6 +133,7 @@ test("runs application post-create update and deploy steps", async () => {
       "app-uuid",
       {
         ports_exposes: "8080",
+        domains: "http://app.example.test:8080",
         custom_labels: Buffer.from(
           [
             "traefik.http.services.http-0-app.loadbalancer.server.port=8080",

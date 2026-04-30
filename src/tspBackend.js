@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { HttpError } from "./errors.js";
-import { buildStaticSiteArtifactUrl, buildStaticSiteDomain, createArchiveArtifact, slugify } from "./staticSite.js";
+import { buildStaticSiteArtifactUrl, createArchiveArtifact, slugify } from "./staticSite.js";
 
 const DEFAULT_PORT = "8080";
 const TSP_LAYOUTS = [
@@ -57,7 +57,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   const artifactUrl = buildStaticSiteArtifactUrl(publicBaseUrl, artifact);
   const port = String(requestManifest.port || requestManifest.coolify?.ports_exposes || DEFAULT_PORT);
   const coolifyOverrides = requestManifest.coolify || {};
-  const domain = buildStaticSiteDomain(resourceSlug, staticSites);
+  const domain = buildTspBackendDomain(resourceSlug, staticSites, port);
   const domains = coolifyOverrides.domains || domain;
   const desiredInstantDeploy = requestManifest.instant_deploy ?? requestManifest.instantDeploy ?? true;
   const body = withDefaults(defaults, {
@@ -88,6 +88,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
       health_check_enabled: true
     }),
     postCreateProxyPort: port,
+    postCreateDomainPort: port,
     postCreateDeploy: desiredInstantDeploy,
     local: {
       projectName,
@@ -148,6 +149,13 @@ function buildLegacyBackendDockerfile({ artifactUrl, port }) {
     "CMD [\"python\", \"-m\", \"api.main\"]",
     ""
   ].join("\n");
+}
+
+function buildTspBackendDomain(resourceSlug, { domainSuffix }, port) {
+  if (!domainSuffix) return undefined;
+
+  const suffix = domainSuffix.replace(/^\.+/, "").replace(/\.+$/, "");
+  return `http://${resourceSlug}.${suffix}:${port}`;
 }
 
 async function readTspManifest(extractDir) {
