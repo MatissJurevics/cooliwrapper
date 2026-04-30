@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { buildOpenApiDocument, getDocFile, renderDocsIndex } from "../src/routes/docs.js";
 
@@ -27,4 +28,14 @@ test("serves only allowlisted markdown docs", () => {
   assert.equal(getDocFile("api.md").title, "Deployment API Spec");
   assert.equal(getDocFile("tsp-deployment-api.md").title, "TSP Deployment API Guide");
   assert.equal(getDocFile("../.env"), undefined);
+});
+
+test("production Docker image includes markdown docs served by /docs", () => {
+  const dockerfile = fs.readFileSync("Dockerfile", "utf8");
+  const dockerignore = fs.readFileSync(".dockerignore", "utf8");
+
+  assert.match(dockerfile, /COPY README\.md SPEC\.md \.\//);
+  assert.match(dockerfile, /COPY docs \.\/docs/);
+  assert.doesNotMatch(dockerignore, /^README\.md$/m);
+  assert.doesNotMatch(dockerignore, /^docs$/m);
 });
