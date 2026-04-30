@@ -219,6 +219,7 @@ export function renderDocsIndex(publicBaseUrl = "https://uigendeploy.mati.ss") {
 
     <section>
       <h2>Static Site Upload</h2>
+      <p>Upload already-built browser assets. For Vite/React apps, run <code>npm run build</code> and zip the contents of <code>dist</code>. Do not upload source files where <code>index.html</code> still references <code>/src/main.tsx</code>.</p>
       <pre><code>curl -X POST ${baseUrl}/deployments \\
   -H "x-api-key: $WRAPPER_API_KEY" \\
   -F "zip=@./static-site.zip"</code></pre>
@@ -351,7 +352,7 @@ export function buildOpenApiDocument(publicBaseUrl = "https://uigendeploy.mati.s
                     zip: {
                       type: "string",
                       format: "binary",
-                      description: "Required .zip archive containing index.html."
+                      description: "Required .zip archive containing already-built static browser assets and index.html."
                     },
                     manifest: {
                       type: "string",

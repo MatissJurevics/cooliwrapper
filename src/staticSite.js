@@ -18,10 +18,11 @@ export async function prepareStaticSite({ extractDir, uploadId, storageRoot }) {
     throw new HttpError(400, "index.html must contain a non-empty <title> tag");
   }
 
+  const siteRoot = path.dirname(indexPath);
+  const validation = await validateStaticHtmlReferences({ indexHtml, indexPath, siteRoot });
   const titleSlug = slugify(title);
   const shortId = uploadId.replaceAll("-", "").slice(0, 8);
   const resourceSlug = `${titleSlug}-${shortId}`;
-  const siteRoot = path.dirname(indexPath);
   const localPath = path.join(storageRoot, resourceSlug);
 
   await fs.promises.mkdir(storageRoot, { recursive: true });
@@ -38,7 +39,8 @@ export async function prepareStaticSite({ extractDir, uploadId, storageRoot }) {
     titleSlug,
     resourceSlug,
     localPath,
-    indexPath: path.join(localPath, "index.html")
+    indexPath: path.join(localPath, "index.html"),
+    warnings: validation.warnings
   };
 }
 
@@ -133,6 +135,37 @@ export function extractHtmlTitle(html) {
     .trim();
 }
 
+export async function validateStaticHtmlReferences({ indexHtml, indexPath, siteRoot }) {
+  const references = extractHtmlReferences(indexHtml);
+  const warnings = [];
+
+  for (const reference of references) {
+    if (!isLocalAssetReference(reference.path)) continue;
+
+    if (isUnbuiltSourceReference(reference.path)) {
+      throw new HttpError(
+        400,
+        `Static HTML appears to be unbuilt: index.html references ${reference.path}. Upload the built static output instead of source files. For Vite apps, run npm run build and zip the dist directory.`
+      );
+    }
+
+    const resolved = resolveAssetPath({ siteRoot, indexPath, assetPath: reference.path });
+    if (!resolved) continue;
+
+    const exists = await pathExists(resolved);
+    if (exists) continue;
+
+    const message = `index.html references missing asset: ${reference.path}`;
+    if (reference.required) {
+      throw new HttpError(400, `${message}. Upload the complete built static output.`);
+    }
+
+    warnings.push(message);
+  }
+
+  return { warnings };
+}
+
 export async function findStaticIndexHtml(extractDir) {
   const files = await collectFiles(extractDir);
   const indexFiles = files.filter((file) => path.basename(file).toLowerCase() === "index.html");
@@ -146,6 +179,95 @@ export async function findStaticIndexHtml(extractDir) {
   });
 
   return indexFiles[0];
+}
+
+function extractHtmlReferences(html) {
+  return [
+    ...extractScriptReferences(html),
+    ...extractLinkReferences(html)
+  ];
+}
+
+function extractScriptReferences(html) {
+  return Array.from(html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1[^>]*>/gi), (match) => ({
+    kind: "script",
+    path: decodeHtmlEntities(match[2].trim()),
+    required: true
+  }));
+}
+
+function extractLinkReferences(html) {
+  return Array.from(html.matchAll(/<link\b[^>]*>/gi), (match) => {
+    const tag = match[0];
+    const href = getHtmlAttribute(tag, "href");
+    if (!href) return undefined;
+
+    const rel = (getHtmlAttribute(tag, "rel") || "").toLowerCase();
+    const tracked = rel.split(/\s+/).some((value) => [
+      "stylesheet",
+      "modulepreload",
+      "preload",
+      "icon",
+      "shortcut",
+      "apple-touch-icon"
+    ].includes(value));
+
+    if (!tracked) return undefined;
+
+    return {
+      kind: "link",
+      path: decodeHtmlEntities(href.trim()),
+      required: true
+    };
+  }).filter(Boolean);
+}
+
+function getHtmlAttribute(tag, attributeName) {
+  const match = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*(["'])(.*?)\\1`, "i"));
+  return match?.[2];
+}
+
+function isLocalAssetReference(value) {
+  if (!value || value.startsWith("#")) return false;
+
+  return !/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(value)
+    && !/^(?:data|mailto|tel|javascript):/i.test(value);
+}
+
+function isUnbuiltSourceReference(value) {
+  const pathname = stripUrlSuffix(value).toLowerCase();
+
+  return /\.(?:[cm]?ts|tsx|jsx)$/.test(pathname) || pathname.includes("/src/");
+}
+
+function resolveAssetPath({ siteRoot, indexPath, assetPath }) {
+  const cleanPath = stripUrlSuffix(assetPath);
+  if (!cleanPath || cleanPath.startsWith("#")) return undefined;
+
+  const root = path.resolve(siteRoot);
+  const resolved = cleanPath.startsWith("/")
+    ? path.resolve(root, `.${cleanPath}`)
+    : path.resolve(path.dirname(indexPath), cleanPath);
+
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new HttpError(400, `index.html references an asset outside the static site root: ${assetPath}`);
+  }
+
+  return resolved;
+}
+
+function stripUrlSuffix(value) {
+  return value.split(/[?#]/, 1)[0];
+}
+
+async function pathExists(filePath) {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    return stat.isFile();
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 async function collectFiles(rootDir) {

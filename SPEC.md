@@ -237,6 +237,8 @@ Fields:
 
 If the extracted ZIP contains an `index.html`, the wrapper treats it as static HTML and creates a Coolify Dockerfile application. This static detection runs before automatic compose-file detection so generated frontend artifacts do not fall through to `POST /services`. To deploy a compose service intentionally, include an explicit manifest with `"type": "service"`.
 
+The static ZIP must contain already-built browser assets. For Vite/React apps, upload the `dist/` directory produced by `npm run build`, not the source project. The wrapper rejects `index.html` files that reference source entrypoints such as `/src/main.tsx`, `.ts`, `.tsx`, or `.jsx`, and it rejects missing referenced local assets such as scripts, stylesheets, module preloads, and favicons before creating a Coolify resource.
+
 Request:
 
 ```bash

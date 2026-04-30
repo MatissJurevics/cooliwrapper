@@ -120,7 +120,8 @@ async function buildStaticHtmlPlan(
       artifactUrl
     },
     warnings: [
-      "Static HTML was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized static-site artifact from this wrapper during the Coolify build."
+      "Static HTML was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized static-site artifact from this wrapper during the Coolify build.",
+      ...(site.warnings || [])
     ]
   };
 }

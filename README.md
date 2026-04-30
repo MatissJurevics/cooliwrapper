@@ -14,10 +14,13 @@ TSP generator integration guide: [docs/tsp-deployment-api.md](./docs/tsp-deploym
 
 Static HTML ZIPs are the default.
 
+The ZIP must contain already-built browser assets. For Vite/React apps, upload `dist/` after `npm run build`, not the source project. An `index.html` that references `/src/main.tsx`, `.ts`, `.tsx`, or `.jsx` entrypoints is rejected because browsers cannot run those files directly from nginx.
+
 When a ZIP contains `index.html`, the wrapper:
 
 - finds the shallowest `index.html`
 - reads its `<title>`
+- validates that referenced local scripts, stylesheets, module preloads, and favicons exist and are browser-ready
 - stores the extracted site under `uploads/static-sites/<title-slug>-<id>`
 - writes a compressed build artifact under `uploads/artifacts`
 - creates a new Coolify Dockerfile application named from that title
