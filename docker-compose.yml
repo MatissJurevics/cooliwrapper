@@ -9,9 +9,11 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://uigendeploy.mati.ss}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://uigendeploy.deploymentsv1.dubsof.com}
       STATIC_SITE_STORAGE_ROOT: /app/uploads/static-sites
       STATIC_SITE_ARTIFACT_STORAGE_ROOT: /app/uploads/artifacts
+      STATIC_SITE_DOMAIN_SUFFIX: ${STATIC_SITE_DOMAIN_SUFFIX:-deploymentsv1.dubsof.com}
+      STATIC_SITE_DOMAIN_SCHEME: ${STATIC_SITE_DOMAIN_SCHEME:-https}
     expose:
       - "3000"
     volumes:

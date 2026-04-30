@@ -35,20 +35,24 @@ test("creates a dockerfile application plan for TSP python backends", async () =
       staticSites: {
         storageRoot,
         artifactStorageRoot,
+        domainSuffix: "deploymentsv1.dubsof.com",
+        domainScheme: "https",
         maxArchiveBytes: 1024 * 1024
       },
       uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
-      publicBaseUrl: "https://uigendeploy.mati.ss"
+      publicBaseUrl: "https://uigendeploy.deploymentsv1.dubsof.com"
     });
 
     const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "todoapp-api-12345678");
+    assert.equal(plan.body.domains, "https://todoapp-api-12345678.deploymentsv1.dubsof.com");
+    assert.equal("autogenerate_domain" in plan.body, false);
     assert.equal(plan.body.ports_exposes, "8080");
     assert.equal(plan.body.health_check_path, "/health");
     assert.match(dockerfile, /FROM python:3\.11-slim/);
-    assert.match(dockerfile, /ADD https:\/\/uigendeploy\.mati\.ss\/artifacts\/12345678-aaaa-bbbb-cccc-123456789abc\/site\.tgz\?token=/);
+    assert.match(dockerfile, /ADD https:\/\/uigendeploy\.deploymentsv1\.dubsof\.com\/artifacts\/12345678-aaaa-bbbb-cccc-123456789abc\/site\.tgz\?token=/);
     assert.match(dockerfile, /CMD \["python", "-m", "api\.main"\]/);
     assert.equal(plan.local.servicePath, "repository/services/api");
     assert.equal(plan.local.artifactPath, path.join(artifactStorageRoot, "12345678-aaaa-bbbb-cccc-123456789abc.tgz"));

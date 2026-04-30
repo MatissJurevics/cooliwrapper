@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { HttpError } from "./errors.js";
-import { buildStaticSiteArtifactUrl, createArchiveArtifact, slugify } from "./staticSite.js";
+import { buildStaticSiteArtifactUrl, buildStaticSiteDomain, createArchiveArtifact, slugify } from "./staticSite.js";
 
 const API_ROOT = "repository/services/api";
 const DEFAULT_PORT = "8080";
@@ -38,6 +38,8 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   const artifactUrl = buildStaticSiteArtifactUrl(publicBaseUrl, artifact);
   const port = String(requestManifest.port || requestManifest.coolify?.ports_exposes || DEFAULT_PORT);
   const coolifyOverrides = requestManifest.coolify || {};
+  const domain = buildStaticSiteDomain(resourceSlug, staticSites);
+  const domains = coolifyOverrides.domains || domain;
   const body = withDefaults(defaults, {
     ...coolifyOverrides,
     name: resourceSlug,
@@ -49,7 +51,8 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     health_check_path: requestManifest.health_check_path || requestManifest.healthCheckPath || "/health",
     health_check_port: port,
     health_check_enabled: true,
-    autogenerate_domain: coolifyOverrides.domains ? undefined : true
+    autogenerate_domain: domains ? undefined : true,
+    domains
   });
 
   requireFields(body, ["name", "project_uuid", "server_uuid", "destination_uuid", "dockerfile"], "tsp-backend");

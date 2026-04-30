@@ -2,7 +2,7 @@
 
 Small HTTP API that accepts a ZIP file, extracts it safely, and creates Coolify resources on `coolify.mati.ss`.
 
-Public deployment: `https://uigendeploy.mati.ss`
+Public deployment: `https://uigendeploy.deploymentsv1.dubsof.com`
 
 Full API and behavior spec: [SPEC.md](./SPEC.md)
 
@@ -17,6 +17,7 @@ When a ZIP contains `index.html`, the wrapper:
 - stores the extracted site under `uploads/static-sites/<title-slug>-<id>`
 - writes a compressed build artifact under `uploads/artifacts`
 - creates a new Coolify Dockerfile application named from that title
+- assigns a domain matching `https://<resource-slug>.deploymentsv1.dubsof.com`
 - serves the site with `nginx`
 
 Coolify's API does not currently expose direct static ZIP/file upload. This wrapper uses the closest API-only path: it generates a small Dockerfile that downloads a tokenized static-site artifact from this wrapper during the Coolify build.
@@ -49,8 +50,8 @@ Required Coolify values:
 Optional:
 
 - `WRAPPER_API_KEY`: when set, clients must send `x-api-key: <key>` or `Authorization: Bearer <key>`.
-- `STATIC_SITE_DOMAIN_SUFFIX`: when set, domains are derived from the HTML title, for example `launch-page-a1b2c3d4.example.com`.
-- `PUBLIC_BASE_URL`: public URL used by Coolify builds to download generated artifacts. In production this is `https://uigendeploy.mati.ss`.
+- `STATIC_SITE_DOMAIN_SUFFIX`: deployment domain suffix. Defaults to `deploymentsv1.dubsof.com`, so domains are derived from the HTML title, for example `launch-page-a1b2c3d4.deploymentsv1.dubsof.com`.
+- `PUBLIC_BASE_URL`: public URL used by Coolify builds to download generated artifacts. In production this is `https://uigendeploy.deploymentsv1.dubsof.com`.
 - `MAX_STATIC_ARCHIVE_BYTES`: compressed static site artifact size limit. Default is `26214400`.
 
 ## Finding Coolify UUIDs
@@ -114,7 +115,7 @@ Response includes:
 Uploads a `.tsp` archive, validates the generated Python backend at `repository/services/api`, and creates a new Coolify Dockerfile application on port `8080`.
 
 ```bash
-curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
+curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments \
   -H "x-api-key: $WRAPPER_API_KEY" \
   -F "tsp=@./backend.tsp"
 ```
@@ -124,6 +125,8 @@ The generated Dockerfile downloads a tokenized TSP artifact from this wrapper du
 ```bash
 python -m api.main
 ```
+
+The backend deployment uses the same generated domain convention: `https://<resource-slug>.deploymentsv1.dubsof.com`.
 
 The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
 
@@ -139,15 +142,15 @@ Static HTML ZIPs do not need a manifest. You can still pass one to override Cool
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://launch-page.example.com"
+    "domains": "https://launch-page.deploymentsv1.dubsof.com"
   }
 }
 ```
 
-If `STATIC_SITE_DOMAIN_SUFFIX=example.com`, an `index.html` titled `Launch Page` becomes something like:
+If `STATIC_SITE_DOMAIN_SUFFIX=deploymentsv1.dubsof.com`, an `index.html` titled `Launch Page` becomes something like:
 
 ```text
-https://launch-page-a1b2c3d4.example.com
+https://launch-page-a1b2c3d4.deploymentsv1.dubsof.com
 ```
 
 ## Other Supported Modes
