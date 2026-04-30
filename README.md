@@ -4,6 +4,8 @@ Small HTTP API that accepts a ZIP file, extracts it safely, and creates Coolify 
 
 Public deployment: `https://uigendeploy.mati.ss`
 
+Public docs endpoint: `https://uigendeploy.mati.ss/docs`
+
 Full API and behavior spec: [SPEC.md](./SPEC.md)
 
 TSP generator integration guide: [docs/tsp-deployment-api.md](./docs/tsp-deployment-api.md)
@@ -79,6 +81,16 @@ If the destination UUID is not visible in the discovery response, copy it from t
 ### `GET /health`
 
 Checks the wrapper process.
+
+### `GET /docs`
+
+Public browser-friendly integration docs. This route does not require the wrapper API key.
+
+Related docs endpoints:
+
+- `GET /docs/api.md`: raw deployment API spec.
+- `GET /docs/tsp-deployment-api.md`: raw TSP generator integration guide.
+- `GET /docs/openapi.json`: OpenAPI document for client tooling.
 
 ### `GET /coolify/health`
 

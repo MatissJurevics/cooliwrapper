@@ -5,6 +5,7 @@ import { HttpError } from "./errors.js";
 import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createCoolifyRouter } from "./routes/coolify.js";
 import { createDeploymentsRouter } from "./routes/deployments.js";
+import { createDocsRouter } from "./routes/docs.js";
 import { createTspDeploymentsRouter } from "./routes/tspDeployments.js";
 
 const app = express();
@@ -29,6 +30,7 @@ app.get("/coolify/health", async (_request, response, next) => {
   }
 });
 
+app.use("/docs", createDocsRouter({ config }));
 app.use("/artifacts", createArtifactsRouter({ config }));
 app.use(requireWrapperAuth(config.wrapperApiKey));
 app.use("/coolify", createCoolifyRouter({ config, coolifyClient }));

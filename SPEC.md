@@ -92,6 +92,13 @@ Public health endpoints do not require wrapper auth:
 - `GET /health`
 - `GET /coolify/health`
 
+Public documentation endpoints do not require wrapper auth:
+
+- `GET /docs`
+- `GET /docs/api.md`
+- `GET /docs/tsp-deployment-api.md`
+- `GET /docs/openapi.json`
+
 Artifact downloads do not use `WRAPPER_API_KEY`, because Coolify's build container needs to fetch them directly. They are protected by a random per-upload token in the artifact URL:
 
 - `GET /artifacts/:artifactId/site.tgz?token=<artifact-token>`
@@ -109,6 +116,8 @@ WRAPPER_API_KEY must be configured on https://uigendeploy.mati.ss.
 ```
 
 Without it, anyone who can reach the public URL can create deployments, and `/coolify/discovery` may expose sensitive Coolify resource metadata.
+
+The docs endpoints are intentionally public so integrators can self-serve current API details from the deployed wrapper.
 
 When enabled, provide either:
 
@@ -200,6 +209,16 @@ Response shape:
   "notes": []
 }
 ```
+
+### `GET /docs`
+
+Public browser-friendly integration docs. This endpoint is intended for developers and agents that need the current wrapper contract without asking for a pasted spec.
+
+Related docs endpoints:
+
+- `GET /docs/api.md`: raw deployment API spec.
+- `GET /docs/tsp-deployment-api.md`: raw TSP generator integration guide.
+- `GET /docs/openapi.json`: OpenAPI document for client tooling.
 
 ### `POST /deployments`
 
