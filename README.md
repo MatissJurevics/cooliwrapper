@@ -6,6 +6,8 @@ Public deployment: `https://uigendeploy.deploymentsv1.dubsof.com`
 
 Full API and behavior spec: [SPEC.md](./SPEC.md)
 
+TSP generator integration guide: [docs/tsp-deployment-api.md](./docs/tsp-deployment-api.md)
+
 ## Default Flow
 
 Static HTML ZIPs are the default.
