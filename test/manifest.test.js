@@ -59,7 +59,7 @@ test("auto-detects static HTML before compose files when both are present", asyn
       staticSites: {
         storageRoot,
         artifactStorageRoot,
-        domainSuffix: "mati.ss",
+        domainSuffix: "deploymentsv1.atrium.dubsof.com",
         domainScheme: "https",
         maxArchiveBytes: 1024 * 1024
       },
@@ -70,7 +70,7 @@ test("auto-detects static HTML before compose files when both are present", asyn
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "playground-build-12345678");
-    assert.equal(plan.body.domains, "https://playground-build-12345678.mati.ss");
+    assert.equal(plan.body.domains, "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com");
   } finally {
     await fs.promises.rm(root, { recursive: true, force: true });
     await fs.promises.rm(storageRoot, { recursive: true, force: true });
@@ -220,7 +220,7 @@ test("auto-detects static HTML, stores it locally, and creates dockerfile app pl
       staticSites: {
         storageRoot,
         artifactStorageRoot,
-        domainSuffix: "mati.ss",
+        domainSuffix: "deploymentsv1.atrium.dubsof.com",
         domainScheme: "https",
         maxArchiveBytes: 1024 * 1024
       },
@@ -232,7 +232,7 @@ test("auto-detects static HTML, stores it locally, and creates dockerfile app pl
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "launch-page-12345678");
-    assert.equal(plan.body.domains, "https://launch-page-12345678.mati.ss");
+    assert.equal(plan.body.domains, "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com");
     assert.equal("autogenerate_domain" in plan.body, false);
     assert.match(dockerfile, /FROM nginx:alpine/);
     assert.match(dockerfile, /ADD https:\/\/uigendeploy\.mati\.ss\/artifacts\//);

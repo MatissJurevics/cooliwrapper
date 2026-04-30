@@ -22,7 +22,7 @@ Output:
 
 - a new Coolify Dockerfile application
 - a generated resource name based on the HTML title
-- a public URL matching `https://<resource-slug>.mati.ss`
+- a public URL matching `https://<deployment-id>.deploymentsv1.atrium.dubsof.com`
 - an extracted local copy retained by the wrapper container volume
 - a tokenized build artifact retained by the wrapper container volume
 
@@ -80,8 +80,10 @@ https://uigendeploy.mati.ss/artifacts/<upload-id>/site.tgz?token=<artifact-token
 13. Coolify creates and deploys a new application resource with the generated domain:
 
 ```text
-https://<resource-slug>.mati.ss
+https://<deployment-id>.deploymentsv1.atrium.dubsof.com
 ```
+
+`<deployment-id>` is the `id` field returned by the wrapper response.
 
 The artifact-download design avoids passing the full static site through Coolify's command line. This prevents OS-level `Argument list too long` failures during Coolify deployment.
 
@@ -265,7 +267,7 @@ Success response:
   },
   "coolify": {
     "uuid": "cwwp6dw5h5v8z8jwx23t0rza",
-    "domains": "https://cooliwrapper-sample-b41b7d8c.mati.ss"
+    "domains": "https://b41b7d8c-0c13-4af5-8d48-747ce8b4c567.deploymentsv1.atrium.dubsof.com"
   },
   "local": {
     "title": "Cooliwrapper Sample",
@@ -368,7 +370,7 @@ Success response shape:
   },
   "coolify": {
     "uuid": "coolify-resource-uuid",
-    "domains": "http://todoapp-api-12345678.mati.ss:8080"
+    "domains": "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com"
   },
   "local": {
     "projectName": "TodoApp",
@@ -414,7 +416,7 @@ Optional manifest override:
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "http://todo-api.mati.ss:8080"
+    "domains": "https://custom-id.deploymentsv1.atrium.dubsof.com"
   }
 }
 ```
@@ -449,7 +451,7 @@ Example:
 curl -X POST https://uigendeploy.mati.ss/deployments \
   -H "x-api-key: <WRAPPER_API_KEY>" \
   -F "zip=@./static-site.zip" \
-  -F 'manifest={"type":"static-html","coolify":{"domains":"https://example.mati.ss"}}'
+  -F 'manifest={"type":"static-html","coolify":{"domains":"https://custom-id.deploymentsv1.atrium.dubsof.com"}}'
 ```
 
 Manifest shape:
@@ -463,7 +465,7 @@ Manifest shape:
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://example.mati.ss"
+    "domains": "https://custom-id.deploymentsv1.atrium.dubsof.com"
   }
 }
 ```
@@ -535,7 +537,7 @@ Optional environment variables:
 
 ```env
 WRAPPER_API_KEY=<wrapper-client-token>
-STATIC_SITE_DOMAIN_SUFFIX=mati.ss
+STATIC_SITE_DOMAIN_SUFFIX=deploymentsv1.atrium.dubsof.com
 STATIC_SITE_DOMAIN_SCHEME=https
 STATIC_SITE_ARTIFACT_STORAGE_ROOT=/app/uploads/artifacts
 MAX_ZIP_BYTES=104857600

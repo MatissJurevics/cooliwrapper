@@ -24,7 +24,7 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "todoapp-api-12345678");
-    assert.equal(plan.body.domains, "http://todoapp-api-12345678.mati.ss:8080");
+    assert.equal(plan.body.domains, "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com");
     assert.equal("autogenerate_domain" in plan.body, false);
     assert.equal(plan.body.instant_deploy, false);
     assert.equal(plan.body.ports_exposes, "8080");
@@ -36,7 +36,7 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
       health_check_enabled: true
     });
     assert.equal(plan.postCreateProxyPort, "8080");
-    assert.equal(plan.postCreateDomainPort, "8080");
+    assert.equal("postCreateDomainPort" in plan, false);
     assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM ghcr\.io\/astral-sh\/uv:python3\.12-bookworm-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
@@ -70,7 +70,7 @@ test("keeps legacy repository/services/api TSP backends working", async () => {
 
     const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
     assert.equal(plan.body.name, "todoapp-api-12345678");
-    assert.equal(plan.body.domains, "http://todoapp-api-12345678.mati.ss:8080");
+    assert.equal(plan.body.domains, "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com");
     assert.equal(plan.body.instant_deploy, false);
     assert.equal(plan.postCreateUpdate.ports_exposes, "8080");
     assert.equal(plan.postCreateDeploy, true);
@@ -166,7 +166,7 @@ function staticSiteConfig({ storageRoot, artifactStorageRoot }) {
   return {
     storageRoot,
     artifactStorageRoot,
-    domainSuffix: "mati.ss",
+    domainSuffix: "deploymentsv1.atrium.dubsof.com",
     domainScheme: "https",
     maxArchiveBytes: 1024 * 1024
   };

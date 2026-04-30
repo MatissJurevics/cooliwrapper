@@ -88,7 +88,7 @@ async function buildStaticHtmlPlan(
   });
   const artifactUrl = buildStaticSiteArtifactUrl(publicBaseUrl, artifact);
 
-  const domain = buildStaticSiteDomain(site.resourceSlug, staticSites);
+  const domain = buildStaticSiteDomain(uploadId, staticSites);
   const coolifyOverrides = manifest.coolify || {};
   const domains = coolifyOverrides.domains || domain;
   const body = withDefaults(defaults, {

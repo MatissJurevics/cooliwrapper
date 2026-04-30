@@ -106,11 +106,12 @@ export function buildStaticSiteDockerfile(artifactUrl) {
   ].join("\n");
 }
 
-export function buildStaticSiteDomain(resourceSlug, { domainSuffix, domainScheme }) {
+export function buildStaticSiteDomain(deploymentId, { domainSuffix, domainScheme }) {
   if (!domainSuffix) return undefined;
 
   const suffix = domainSuffix.replace(/^\.+/, "").replace(/\.+$/, "");
-  return `${domainScheme}://${resourceSlug}.${suffix}`;
+  const subdomain = slugify(deploymentId);
+  return `${domainScheme}://${subdomain}.${suffix}`;
 }
 
 export function slugify(value) {

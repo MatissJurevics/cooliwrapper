@@ -24,7 +24,7 @@ When a ZIP contains `index.html`, the wrapper:
 - stores the extracted site under `uploads/static-sites/<title-slug>-<id>`
 - writes a compressed build artifact under `uploads/artifacts`
 - creates a new Coolify Dockerfile application named from that title
-- assigns a domain matching `https://<resource-slug>.mati.ss`
+- assigns a domain matching `https://<deployment-id>.deploymentsv1.atrium.dubsof.com`
 - serves the site with `nginx`
 
 Coolify's API does not currently expose direct static ZIP/file upload. This wrapper uses the closest API-only path: it generates a small Dockerfile that downloads a tokenized static-site artifact from this wrapper during the Coolify build.
@@ -57,7 +57,7 @@ Required Coolify values:
 Optional:
 
 - `WRAPPER_API_KEY`: when set, clients must send `x-api-key: <key>` or `Authorization: Bearer <key>`.
-- `STATIC_SITE_DOMAIN_SUFFIX`: deployment domain suffix. Defaults to `mati.ss`, so domains are derived from the HTML title, for example `launch-page-a1b2c3d4.mati.ss`.
+- `STATIC_SITE_DOMAIN_SUFFIX`: deployment domain suffix. Defaults to `deploymentsv1.atrium.dubsof.com`, so domains are based on the deployment ID, for example `12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com`.
 - `PUBLIC_BASE_URL`: public URL used by Coolify builds to download generated artifacts. In production this is `https://uigendeploy.mati.ss`.
 - `MAX_STATIC_ARCHIVE_BYTES`: compressed static site artifact size limit. Default is `26214400`.
 
@@ -147,7 +147,7 @@ python -m app
 
 Legacy archives that use `repository/services/api` are still accepted as a fallback.
 
-The backend deployment writes the backend port into the Coolify domain value, for example `http://<resource-slug>.mati.ss:8080`.
+The backend deployment exposes the app internally on port `8080`, but the generated Coolify domain uses HTTPS without a port, for example `https://<deployment-id>.deploymentsv1.atrium.dubsof.com`.
 
 The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
 
@@ -163,15 +163,15 @@ Static HTML ZIPs do not need a manifest. You can still pass one to override Cool
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://launch-page.mati.ss"
+    "domains": "https://custom-id.deploymentsv1.atrium.dubsof.com"
   }
 }
 ```
 
-If `STATIC_SITE_DOMAIN_SUFFIX=mati.ss`, an `index.html` titled `Launch Page` becomes something like:
+If `STATIC_SITE_DOMAIN_SUFFIX=deploymentsv1.atrium.dubsof.com`, a deployment ID of `12345678-aaaa-bbbb-cccc-123456789abc` becomes:
 
 ```text
-https://launch-page-a1b2c3d4.mati.ss
+https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com
 ```
 
 ## Other Supported Modes
