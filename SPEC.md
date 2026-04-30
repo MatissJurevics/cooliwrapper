@@ -369,12 +369,13 @@ Generated Dockerfile behavior:
 
 1. Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 2. Downloads the tokenized artifact URL with Dockerfile `ADD`.
-3. Extracts the TSP repository.
-4. Uses `services/api` as the working directory.
-5. Installs the generated API package with `uv pip install --system .`.
-6. Uses the generated package metadata instead of special-casing `requirements.txt`.
-7. Exposes port `8080`.
-8. Starts `python -m app`.
+3. Installs `curl` so Coolify's Dockerfile healthcheck can probe `/health`.
+4. Extracts the TSP repository.
+5. Uses `services/api` as the working directory.
+6. Installs the generated API package with `uv pip install --system .`.
+7. Uses the generated package metadata instead of special-casing `requirements.txt`.
+8. Exposes port `8080`.
+9. Starts `python -m app`.
 
 Optional manifest override:
 

@@ -268,9 +268,10 @@ The deployment API generates a Dockerfile that:
 
 1. Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 2. Downloads a tokenized artifact from the deployment API.
-3. Uses `services/api` as the build working directory.
-4. Installs the generated API package with `uv pip install --system .`.
-5. Uses the generated package metadata instead of special-casing `requirements.txt`.
-6. Starts the backend with `python -m app`.
+3. Installs `curl` so Coolify's Dockerfile healthcheck can probe `/health`.
+4. Uses `services/api` as the build working directory.
+5. Installs the generated API package with `uv pip install --system .`.
+6. Uses the generated package metadata instead of special-casing `requirements.txt`.
+7. Starts the backend with `python -m app`.
 
 Generated SQLite databases are not durable by default. For production persistence, generate the backend to use an external database or add persistent storage support.

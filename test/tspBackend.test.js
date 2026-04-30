@@ -29,6 +29,7 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
     assert.equal(plan.body.ports_exposes, "8080");
     assert.equal(plan.body.health_check_path, "/health");
     assert.match(dockerfile, /FROM ghcr\.io\/astral-sh\/uv:python3\.12-bookworm-slim/);
+    assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
     assert.match(dockerfile, /WORKDIR \/bundle\/services\/api/);
     assert.match(dockerfile, /RUN uv pip install --system \./);
     assert.match(dockerfile, /CMD \["python", "-m", "app"\]/);
@@ -61,6 +62,7 @@ test("keeps legacy repository/services/api TSP backends working", async () => {
     assert.equal(plan.body.name, "todoapp-api-12345678");
     assert.equal(plan.body.domains, "https://todoapp-api-12345678.mati.ss");
     assert.match(dockerfile, /FROM python:3\.11-slim/);
+    assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
     assert.match(dockerfile, /repository\/services\/api/);
     assert.match(dockerfile, /CMD \["python", "-m", "api\.main"\]/);
     assert.equal(plan.local.servicePath, "repository/services/api");
