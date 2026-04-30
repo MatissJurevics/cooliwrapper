@@ -45,7 +45,7 @@ export class CoolifyClient {
     const payload = await parseResponse(response);
 
     if (!response.ok) {
-      throw new CoolifyApiError(response.status, method, path, payload);
+      throw new CoolifyApiError(response.status, method, path, payload, { query, body });
     }
 
     return payload;

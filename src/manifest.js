@@ -386,19 +386,19 @@ async function findEmbeddedManifest(extractDir) {
 }
 
 async function detectManifest(extractDir) {
+  const indexHtml = await findStaticIndexHtml(extractDir);
+  if (indexHtml) {
+    return {
+      type: "static-html"
+    };
+  }
+
   const composeFile = await findComposeFile(extractDir);
   if (composeFile) {
     const relativeComposeFile = path.relative(extractDir, composeFile);
     return {
       type: "service",
       composeFile: relativeComposeFile
-    };
-  }
-
-  const indexHtml = await findStaticIndexHtml(extractDir);
-  if (indexHtml) {
-    return {
-      type: "static-html"
     };
   }
 

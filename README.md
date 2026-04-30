@@ -105,6 +105,8 @@ curl -X POST http://localhost:3000/deployments \
   -F "zip=@./static-site.zip"
 ```
 
+If an uploaded ZIP contains `index.html`, the wrapper treats it as a static HTML artifact and deploys it through Coolify's Dockerfile application API, even if a compose file is also present. Send an explicit manifest with `"type": "service"` to force the Docker Compose service path.
+
 Response includes:
 
 - `local.title`: title read from `index.html`
