@@ -42,8 +42,8 @@ export async function prepareStaticSite({ extractDir, uploadId, storageRoot }) {
   };
 }
 
-export async function createStaticSiteArtifact(siteRoot, { artifactId, artifactStorageRoot, maxArchiveBytes }) {
-  const archive = gzipSync(await createTarArchive(siteRoot));
+export async function createArchiveArtifact(sourceRoot, { artifactId, artifactStorageRoot, maxArchiveBytes }) {
+  const archive = gzipSync(await createTarArchive(sourceRoot));
 
   if (archive.length > maxArchiveBytes) {
     throw new HttpError(

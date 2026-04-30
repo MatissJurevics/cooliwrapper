@@ -2,4 +2,5 @@
 .codex
 node_modules/
 uploads/
+*.tsp
 *.log

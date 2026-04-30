@@ -5,6 +5,7 @@ import { HttpError } from "./errors.js";
 import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createCoolifyRouter } from "./routes/coolify.js";
 import { createDeploymentsRouter } from "./routes/deployments.js";
+import { createTspDeploymentsRouter } from "./routes/tspDeployments.js";
 
 const app = express();
 const coolifyClient = new CoolifyClient(config.coolify);
@@ -32,6 +33,7 @@ app.use("/artifacts", createArtifactsRouter({ config }));
 app.use(requireWrapperAuth(config.wrapperApiKey));
 app.use("/coolify", createCoolifyRouter({ config, coolifyClient }));
 app.use("/deployments", createDeploymentsRouter({ config, coolifyClient }));
+app.use("/tsp-deployments", createTspDeploymentsRouter({ config, coolifyClient }));
 
 app.use((_request, _response, next) => {
   next(new HttpError(404, "Route not found"));

@@ -109,6 +109,24 @@ Response includes:
 - `local.path`: extracted copy stored under this project
 - `coolify`: Coolify API response
 
+### `POST /tsp-deployments`
+
+Uploads a `.tsp` archive, validates the generated Python backend at `repository/services/api`, and creates a new Coolify Dockerfile application on port `8080`.
+
+```bash
+curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
+  -H "x-api-key: $WRAPPER_API_KEY" \
+  -F "tsp=@./backend.tsp"
+```
+
+The generated Dockerfile downloads a tokenized TSP artifact from this wrapper during the Coolify build, installs the generated database package when present, installs the API requirements, and starts:
+
+```bash
+python -m api.main
+```
+
+The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
+
 ## Static Manifest Overrides
 
 Static HTML ZIPs do not need a manifest. You can still pass one to override Coolify fields:

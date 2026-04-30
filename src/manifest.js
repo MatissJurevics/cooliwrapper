@@ -5,7 +5,7 @@ import {
   buildStaticSiteArtifactUrl,
   buildStaticSiteDockerfile,
   buildStaticSiteDomain,
-  createStaticSiteArtifact,
+  createArchiveArtifact,
   findStaticIndexHtml,
   prepareStaticSite
 } from "./staticSite.js";
@@ -81,7 +81,7 @@ async function buildStaticHtmlPlan(
     uploadId,
     storageRoot: staticSites.storageRoot
   });
-  const artifact = await createStaticSiteArtifact(site.localPath, {
+  const artifact = await createArchiveArtifact(site.localPath, {
     artifactId: uploadId,
     artifactStorageRoot: staticSites.artifactStorageRoot,
     maxArchiveBytes: staticSites.maxArchiveBytes

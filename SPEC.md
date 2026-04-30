@@ -26,6 +26,8 @@ Output:
 - an extracted local copy retained by the wrapper container volume
 - a tokenized build artifact retained by the wrapper container volume
 
+The API also supports generated TSP Python backend archives through `POST /tsp-deployments`.
+
 ## Runtime Behavior
 
 1. Client uploads a ZIP to `POST /deployments`.
@@ -93,6 +95,7 @@ Artifact downloads do not use `WRAPPER_API_KEY`, because Coolify's build contain
 Protected endpoints require wrapper auth only when `WRAPPER_API_KEY` is configured:
 
 - `POST /deployments`
+- `POST /tsp-deployments`
 - `GET /coolify/discovery`
 
 Production requirement:
@@ -274,6 +277,110 @@ application/gzip
 ```
 
 Invalid IDs or tokens return `404`.
+
+### `POST /tsp-deployments`
+
+Uploads a `.tsp` archive and creates a new Coolify Dockerfile application for the generated Python backend.
+
+This endpoint expects the TSP archive to be a ZIP with:
+
+```text
+manifest.json
+repository/services/api/requirements.txt
+repository/services/api/__init__.py
+repository/services/api/main.py
+repository/services/api/app.py
+```
+
+If present, the generated database package at this path is installed into the backend image:
+
+```text
+repository/databases/todo_db
+```
+
+Content type:
+
+```text
+multipart/form-data
+```
+
+Fields:
+
+- `tsp`: required `.tsp` or `.zip` file
+- `manifest`: optional JSON string
+
+Request:
+
+```bash
+curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
+  -H "x-api-key: <WRAPPER_API_KEY>" \
+  -F "tsp=@./backend.tsp"
+```
+
+Success status:
+
+```text
+202 Accepted
+```
+
+Success response shape:
+
+```json
+{
+  "id": "12345678-aaaa-bbbb-cccc-123456789abc",
+  "action": "application.dockerfile.created",
+  "extracted": {
+    "files": 105,
+    "bytes": 657214
+  },
+  "coolify": {
+    "uuid": "coolify-resource-uuid",
+    "domains": "https://generated-domain.example"
+  },
+  "local": {
+    "projectName": "TodoApp",
+    "servicePath": "repository/services/api",
+    "resourceSlug": "todoapp-api-12345678",
+    "path": "/app/uploads/static-sites/tsp-backends/todoapp-api-12345678",
+    "artifactPath": "/app/uploads/artifacts/12345678-aaaa-bbbb-cccc-123456789abc.tgz",
+    "artifactBytes": 120000,
+    "artifactUrl": "https://uigendeploy.mati.ss/artifacts/12345678-aaaa-bbbb-cccc-123456789abc/site.tgz?token=<artifact-token>",
+    "port": "8080"
+  },
+  "warnings": [
+    "TSP Python backend was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized TSP artifact from this wrapper during the Coolify build.",
+    "The generated backend uses SQLite by default. Unless the generated backend is changed to use an external database, data persistence across rebuilds is not guaranteed."
+  ]
+}
+```
+
+Generated Dockerfile behavior:
+
+1. Uses `python:3.11-slim`.
+2. Downloads the tokenized artifact URL with Dockerfile `ADD`.
+3. Extracts the TSP repository.
+4. Copies `repository/services/api` to `/app/api`.
+5. Installs `repository/databases/todo_db` when present.
+6. Installs `repository/services/api/requirements.txt`, excluding the generated relative `../databases/todo_db` line.
+7. Exposes port `8080`.
+8. Starts `python -m api.main`.
+
+Optional manifest override:
+
+```json
+{
+  "name": "TodoApp",
+  "port": 8080,
+  "health_check_path": "/health",
+  "coolify": {
+    "project_uuid": "project-uuid",
+    "server_uuid": "server-uuid",
+    "environment_name": "production",
+    "destination_uuid": "destination-uuid",
+    "domains": "https://todo-api.example.com"
+  }
+}
+```
 
 ## ZIP Requirements
 

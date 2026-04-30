@@ -5,11 +5,12 @@ import express from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { extractZip } from "../extractZip.js";
-import { buildDeploymentPlan, executeDeploymentPlan } from "../manifest.js";
+import { executeDeploymentPlan } from "../manifest.js";
+import { buildTspBackendPlan } from "../tspBackend.js";
 import { HttpError } from "../errors.js";
 import { parseRequestManifest } from "../requestManifest.js";
 
-export function createDeploymentsRouter({ config, coolifyClient }) {
+export function createTspDeploymentsRouter({ config, coolifyClient }) {
   const router = express.Router();
   const upload = multer({
     dest: os.tmpdir(),
@@ -18,29 +19,30 @@ export function createDeploymentsRouter({ config, coolifyClient }) {
       files: 1
     },
     fileFilter(_request, file, callback) {
-      if (file.originalname.toLowerCase().endsWith(".zip")) {
+      const filename = file.originalname.toLowerCase();
+      if (filename.endsWith(".tsp") || filename.endsWith(".zip")) {
         callback(null, true);
         return;
       }
 
-      callback(new HttpError(400, "Upload must be a .zip file"));
+      callback(new HttpError(400, "Upload must be a .tsp or .zip file"));
     }
   });
 
-  router.post("/", upload.single("zip"), async (request, response, next) => {
+  router.post("/", upload.any(), async (request, response, next) => {
     const uploadId = randomUUID();
-    const uploadFile = request.file;
-    const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `cooliwrapper-${uploadId}-`));
+    const uploadFile = request.files?.[0];
+    const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `cooliwrapper-tsp-${uploadId}-`));
     const extractDir = path.join(workDir, "extract");
 
     try {
       if (!uploadFile) {
-        throw new HttpError(400, "Multipart field 'zip' is required");
+        throw new HttpError(400, "Multipart field 'tsp' is required");
       }
 
       const requestManifest = parseRequestManifest(request.body);
       const extraction = await extractZip(uploadFile.path, extractDir, config.uploads);
-      const plan = await buildDeploymentPlan({
+      const plan = await buildTspBackendPlan({
         extractDir,
         requestManifest,
         defaults: config.coolify.defaults,
