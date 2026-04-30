@@ -103,23 +103,23 @@ test("auto-detects static HTML, stores it locally, and creates dockerfile app pl
       staticSites: {
         storageRoot,
         artifactStorageRoot,
-        domainSuffix: "deploymentsv1.dubsof.com",
+        domainSuffix: "mati.ss",
         domainScheme: "https",
         maxArchiveBytes: 1024 * 1024
       },
       uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
-      publicBaseUrl: "https://uigendeploy.deploymentsv1.dubsof.com"
+      publicBaseUrl: "https://uigendeploy.mati.ss"
     });
 
     const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
     assert.equal(plan.type, "application");
     assert.equal(plan.mode, "dockerfile");
     assert.equal(plan.body.name, "launch-page-12345678");
-    assert.equal(plan.body.domains, "https://launch-page-12345678.deploymentsv1.dubsof.com");
+    assert.equal(plan.body.domains, "https://launch-page-12345678.mati.ss");
     assert.equal("autogenerate_domain" in plan.body, false);
     assert.match(dockerfile, /FROM nginx:alpine/);
-    assert.match(dockerfile, /ADD https:\/\/uigendeploy\.deploymentsv1\.dubsof\.com\/artifacts\//);
-    assert.match(dockerfile, /https:\/\/uigendeploy\.deploymentsv1\.dubsof\.com\/artifacts\/12345678-aaaa-bbbb-cccc-123456789abc\/site\.tgz\?token=/);
+    assert.match(dockerfile, /ADD https:\/\/uigendeploy\.mati\.ss\/artifacts\//);
+    assert.match(dockerfile, /https:\/\/uigendeploy\.mati\.ss\/artifacts\/12345678-aaaa-bbbb-cccc-123456789abc\/site\.tgz\?token=/);
     assert.equal(plan.local.title, "Launch Page");
     assert.equal(plan.local.artifactPath, path.join(artifactStorageRoot, "12345678-aaaa-bbbb-cccc-123456789abc.tgz"));
     assert.ok(plan.local.artifactBytes > 0);

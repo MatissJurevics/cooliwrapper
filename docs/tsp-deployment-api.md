@@ -5,7 +5,7 @@ Use this document from any app that generates `.tsp` archives and needs to deplo
 ## Endpoint
 
 ```text
-POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments
+POST https://uigendeploy.mati.ss/tsp-deployments
 ```
 
 The request must be `multipart/form-data`.
@@ -33,16 +33,20 @@ The archive must contain these paths at the archive root:
 
 ```text
 manifest.json
-repository/services/api/requirements.txt
-repository/services/api/__init__.py
-repository/services/api/main.py
-repository/services/api/app.py
+services/api/requirements.txt
+services/api/pyproject.toml
+services/api/app/__init__.py
+services/api/app/__main__.py
+services/api/app/main.py
+services/api/app/app.py
 ```
+
+`services/api/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context.
 
 Optional generated database package:
 
 ```text
-repository/databases/todo_db
+services/api/databases/todo_db
 ```
 
 Important generator requirements:
@@ -50,9 +54,12 @@ Important generator requirements:
 - Do not wrap the archive contents in an extra top-level folder.
 - `manifest.json` must be valid JSON.
 - `manifest.json.name` should be the generated app name, for example `TodoApp`.
-- The backend must be runnable with `python -m api.main`.
+- `services/api/pyproject.toml` must support Python 3.12. Current Tinsel output uses `requires-python = ">=3.12"`.
+- The backend must be runnable from `services/api` with `python -m app`.
 - The backend should listen on `0.0.0.0:8080` by default, or on the `port` value sent in the optional request manifest.
 - The backend should expose `GET /health` by default, or the `health_check_path` value sent in the optional request manifest.
+
+Legacy archives that use `repository/services/api` are still accepted as a fallback, but new Tinsel generators should emit the `services/api` layout above.
 
 ## Default Deployment Behavior
 
@@ -73,7 +80,7 @@ todoapp-api-<upload-prefix>
 and assigns a public domain like:
 
 ```text
-https://todoapp-api-<upload-prefix>.deploymentsv1.dubsof.com
+https://todoapp-api-<upload-prefix>.mati.ss
 ```
 
 The upload prefix is derived from the generated upload ID, so every deployment gets a unique resource name and domain.
@@ -90,7 +97,7 @@ Send `manifest` when the generator app needs to override defaults:
   "health_check_path": "/health",
   "instant_deploy": true,
   "coolify": {
-    "domains": "https://todo-api.deploymentsv1.dubsof.com"
+    "domains": "https://todo-api.mati.ss"
   }
 }
 ```
@@ -102,14 +109,14 @@ Common fields:
 - `port`: exposed backend port. Defaults to `8080`.
 - `health_check_path`: Coolify health check path. Defaults to `/health`.
 - `instant_deploy`: starts deployment immediately. Defaults to `true`.
-- `coolify.domains`: explicit public domain. If omitted, the API generates `https://<resource-slug>.deploymentsv1.dubsof.com`.
+- `coolify.domains`: explicit public domain. If omitted, the API generates `https://<resource-slug>.mati.ss`.
 
 Coolify project/server/destination defaults are configured server-side, so normal generator clients should not send those values.
 
 ## cURL Example
 
 ```bash
-curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments \
+curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
   -H "x-api-key: $WRAPPER_API_KEY" \
   -F "tsp=@./TodoApp.tsp"
 ```
@@ -117,7 +124,7 @@ curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments \
 With a request manifest:
 
 ```bash
-curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments \
+curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
   -H "x-api-key: $WRAPPER_API_KEY" \
   -F "tsp=@./TodoApp.tsp" \
   -F 'manifest={"name":"TodoApp","port":8080,"health_check_path":"/health"}'
@@ -145,7 +152,8 @@ type DeployTspResponse = {
   };
   local: {
     projectName: string;
-    servicePath: "repository/services/api";
+    servicePath: "services/api" | "repository/services/api";
+    layout: "tinsel" | "legacy";
     resourceSlug: string;
     artifactBytes: number;
     artifactUrl: string;
@@ -173,7 +181,7 @@ export async function deployTsp({
     form.append("manifest", JSON.stringify(manifest));
   }
 
-  const response = await fetch("https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments", {
+  const response = await fetch("https://uigendeploy.mati.ss/tsp-deployments", {
     method: "POST",
     headers: {
       "x-api-key": apiKey
@@ -205,16 +213,17 @@ Successful requests return `202 Accepted`.
   },
   "coolify": {
     "uuid": "coolify-resource-uuid",
-    "domains": "https://todoapp-api-12345678.deploymentsv1.dubsof.com"
+    "domains": "https://todoapp-api-12345678.mati.ss"
   },
   "local": {
     "projectName": "TodoApp",
-    "servicePath": "repository/services/api",
+    "servicePath": "services/api",
+    "layout": "tinsel",
     "resourceSlug": "todoapp-api-12345678",
     "path": "/app/uploads/static-sites/tsp-backends/todoapp-api-12345678",
     "artifactPath": "/app/uploads/artifacts/12345678-aaaa-bbbb-cccc-123456789abc.tgz",
     "artifactBytes": 120000,
-    "artifactUrl": "https://uigendeploy.deploymentsv1.dubsof.com/artifacts/12345678-aaaa-bbbb-cccc-123456789abc/site.tgz?token=<artifact-token>",
+    "artifactUrl": "https://uigendeploy.mati.ss/artifacts/12345678-aaaa-bbbb-cccc-123456789abc/site.tgz?token=<artifact-token>",
     "port": "8080"
   },
   "warnings": [
@@ -247,7 +256,7 @@ Common failures:
 - `400`: upload is not `.tsp` or `.zip`.
 - `400`: missing `manifest.json`.
 - `400`: invalid `manifest.json`.
-- `400`: missing required backend files under `repository/services/api`.
+- `400`: missing required backend files under `services/api`.
 - `400`: invalid optional request `manifest` JSON.
 - `401`: invalid or missing wrapper API key when auth is enabled.
 - `413`: archive or extracted content exceeds configured limits.
@@ -257,11 +266,11 @@ Common failures:
 
 The deployment API generates a Dockerfile that:
 
-1. Uses `python:3.11-slim`.
+1. Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 2. Downloads a tokenized artifact from the deployment API.
-3. Copies `repository/services/api` into `/app/api`.
-4. Installs `repository/databases/todo_db` when present.
-5. Installs `requirements.txt`, excluding the generated `../databases/todo_db` line.
-6. Starts the backend with `python -m api.main`.
+3. Uses `services/api` as the build working directory.
+4. Installs the generated API package with `uv pip install --system .`.
+5. Uses the generated package metadata instead of special-casing `requirements.txt`.
+6. Starts the backend with `python -m app`.
 
 Generated SQLite databases are not durable by default. For production persistence, generate the backend to use an external database or add persistent storage support.

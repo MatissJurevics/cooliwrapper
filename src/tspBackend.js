@@ -3,8 +3,28 @@ import path from "node:path";
 import { HttpError } from "./errors.js";
 import { buildStaticSiteArtifactUrl, buildStaticSiteDomain, createArchiveArtifact, slugify } from "./staticSite.js";
 
-const API_ROOT = "repository/services/api";
 const DEFAULT_PORT = "8080";
+const TSP_LAYOUTS = [
+  {
+    name: "tinsel",
+    servicePath: "services/api",
+    requiredFiles: [
+      "requirements.txt",
+      "pyproject.toml",
+      "app/__init__.py",
+      "app/__main__.py",
+      "app/main.py",
+      "app/app.py"
+    ],
+    buildDockerfile: buildTinselBackendDockerfile
+  },
+  {
+    name: "legacy",
+    servicePath: "repository/services/api",
+    requiredFiles: ["requirements.txt", "__init__.py", "main.py", "app.py"],
+    buildDockerfile: buildLegacyBackendDockerfile
+  }
+];
 
 export async function buildTspBackendPlan({ extractDir, requestManifest, defaults, staticSites, uploadId, publicBaseUrl }) {
   if (!staticSites?.storageRoot) {
@@ -16,8 +36,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   }
 
   const manifest = await readTspManifest(extractDir);
-  const apiRoot = path.join(extractDir, API_ROOT);
-  await validatePythonBackend(apiRoot);
+  const layout = await detectTspLayout(extractDir);
 
   const projectName = requestManifest.name || manifest.name || "python-backend";
   const shortId = uploadId.replaceAll("-", "").slice(0, 8);
@@ -46,7 +65,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     description: requestManifest.description || `TSP Python backend from ${projectName}`,
     instant_deploy: requestManifest.instant_deploy ?? requestManifest.instantDeploy ?? true,
     build_pack: "dockerfile",
-    dockerfile: encodeBase64(buildTspBackendDockerfile({ artifactUrl, port })),
+    dockerfile: encodeBase64(layout.buildDockerfile({ artifactUrl, port })),
     ports_exposes: port,
     health_check_path: requestManifest.health_check_path || requestManifest.healthCheckPath || "/health",
     health_check_port: port,
@@ -63,7 +82,8 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     body: compactObject(body),
     local: {
       projectName,
-      servicePath: API_ROOT,
+      servicePath: layout.servicePath,
+      layout: layout.name,
       resourceSlug,
       path: localPath,
       artifactPath: artifact.path,
@@ -78,7 +98,24 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   };
 }
 
-function buildTspBackendDockerfile({ artifactUrl, port }) {
+function buildTinselBackendDockerfile({ artifactUrl, port }) {
+  return [
+    "FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim",
+    "ENV PYTHONDONTWRITEBYTECODE=1",
+    "ENV PYTHONUNBUFFERED=1",
+    "ENV TODODB_URL=sqlite:////data/todo_db.sqlite3",
+    "WORKDIR /bundle",
+    `ADD ${artifactUrl} /tmp/tsp-repository.tgz`,
+    "RUN tar -xzf /tmp/tsp-repository.tgz -C /bundle && rm /tmp/tsp-repository.tgz",
+    "WORKDIR /bundle/services/api",
+    "RUN uv pip install --system .",
+    `EXPOSE ${port}`,
+    "CMD [\"python\", \"-m\", \"app\"]",
+    ""
+  ].join("\n");
+}
+
+function buildLegacyBackendDockerfile({ artifactUrl, port }) {
   return [
     "FROM python:3.11-slim",
     "ENV PYTHONDONTWRITEBYTECODE=1",
@@ -116,19 +153,59 @@ async function readTspManifest(extractDir) {
   }
 }
 
-async function validatePythonBackend(apiRoot) {
-  const requiredFiles = ["requirements.txt", "__init__.py", "main.py", "app.py"];
+async function detectTspLayout(extractDir) {
+  const results = [];
 
-  for (const file of requiredFiles) {
+  for (const layout of TSP_LAYOUTS) {
+    const rootExists = await pathExists(path.join(extractDir, layout.servicePath));
+    const missing = await missingRequiredFiles(extractDir, layout);
+
+    if (missing.length === 0) {
+      return layout;
+    }
+
+    if (layout.name === "tinsel" && rootExists) {
+      throw new HttpError(400, `TSP archive requires ${missing[0]}`);
+    }
+
+    results.push({
+      layout,
+      missing,
+      rootExists
+    });
+  }
+
+  const likelyLayout = results.find((result) => result.rootExists) || results[0];
+  throw new HttpError(400, `TSP archive requires ${likelyLayout.missing[0]}`);
+}
+
+async function missingRequiredFiles(extractDir, layout) {
+  const missing = [];
+
+  for (const file of layout.requiredFiles) {
+    const relativePath = path.join(layout.servicePath, file);
     try {
-      await fs.promises.access(path.join(apiRoot, file), fs.constants.R_OK);
+      await fs.promises.access(path.join(extractDir, relativePath), fs.constants.R_OK);
     } catch (error) {
       if (error.code === "ENOENT") {
-        throw new HttpError(400, `TSP archive requires ${API_ROOT}/${file}`);
+        missing.push(toPosixPath(relativePath));
+        continue;
       }
 
       throw error;
     }
+  }
+
+  return missing;
+}
+
+async function pathExists(filePath) {
+  try {
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
   }
 }
 
@@ -154,4 +231,8 @@ function requireFields(value, requiredFields, context) {
 
 function encodeBase64(value) {
   return Buffer.from(value, "utf8").toString("base64");
+}
+
+function toPosixPath(value) {
+  return value.split(path.sep).join("/");
 }

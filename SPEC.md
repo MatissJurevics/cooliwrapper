@@ -3,7 +3,7 @@
 Public base URL:
 
 ```text
-https://uigendeploy.deploymentsv1.dubsof.com
+https://uigendeploy.mati.ss
 ```
 
 This service accepts ZIP uploads containing static HTML, stores the extracted files, and creates a new Coolify resource on `coolify.mati.ss`.
@@ -22,7 +22,7 @@ Output:
 
 - a new Coolify Dockerfile application
 - a generated resource name based on the HTML title
-- a public URL matching `https://<resource-slug>.deploymentsv1.dubsof.com`
+- a public URL matching `https://<resource-slug>.mati.ss`
 - an extracted local copy retained by the wrapper container volume
 - a tokenized build artifact retained by the wrapper container volume
 
@@ -67,7 +67,7 @@ Cooliwrapper Sample -> cooliwrapper-sample-b41b7d8c
 9. The wrapper creates a random artifact token and exposes the archive at:
 
 ```text
-https://uigendeploy.deploymentsv1.dubsof.com/artifacts/<upload-id>/site.tgz?token=<artifact-token>
+https://uigendeploy.mati.ss/artifacts/<upload-id>/site.tgz?token=<artifact-token>
 ```
 
 10. The wrapper builds a small Dockerfile that:
@@ -80,7 +80,7 @@ https://uigendeploy.deploymentsv1.dubsof.com/artifacts/<upload-id>/site.tgz?toke
 13. Coolify creates and deploys a new application resource with the generated domain:
 
 ```text
-https://<resource-slug>.deploymentsv1.dubsof.com
+https://<resource-slug>.mati.ss
 ```
 
 The artifact-download design avoids passing the full static site through Coolify's command line. This prevents OS-level `Argument list too long` failures during Coolify deployment.
@@ -105,7 +105,7 @@ Protected endpoints require wrapper auth only when `WRAPPER_API_KEY` is configur
 Production requirement:
 
 ```text
-WRAPPER_API_KEY must be configured on https://uigendeploy.deploymentsv1.dubsof.com.
+WRAPPER_API_KEY must be configured on https://uigendeploy.mati.ss.
 ```
 
 Without it, anyone who can reach the public URL can create deployments, and `/coolify/discovery` may expose sensitive Coolify resource metadata.
@@ -133,7 +133,7 @@ Returns wrapper process status and configured Coolify API base URL.
 Request:
 
 ```bash
-curl https://uigendeploy.deploymentsv1.dubsof.com/health
+curl https://uigendeploy.mati.ss/health
 ```
 
 Response:
@@ -152,7 +152,7 @@ Checks Coolify API reachability.
 Request:
 
 ```bash
-curl https://uigendeploy.deploymentsv1.dubsof.com/coolify/health
+curl https://uigendeploy.mati.ss/coolify/health
 ```
 
 Response shape:
@@ -178,7 +178,7 @@ This is mainly an operator endpoint for finding:
 Request:
 
 ```bash
-curl https://uigendeploy.deploymentsv1.dubsof.com/coolify/discovery \
+curl https://uigendeploy.mati.ss/coolify/discovery \
   -H "x-api-key: <WRAPPER_API_KEY>"
 ```
 
@@ -219,7 +219,7 @@ Fields:
 Request:
 
 ```bash
-curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/deployments \
+curl -X POST https://uigendeploy.mati.ss/deployments \
   -H "x-api-key: <WRAPPER_API_KEY>" \
   -F "zip=@./static-site.zip"
 ```
@@ -242,7 +242,7 @@ Success response:
   },
   "coolify": {
     "uuid": "cwwp6dw5h5v8z8jwx23t0rza",
-    "domains": "https://cooliwrapper-sample-b41b7d8c.deploymentsv1.dubsof.com"
+    "domains": "https://cooliwrapper-sample-b41b7d8c.mati.ss"
   },
   "local": {
     "title": "Cooliwrapper Sample",
@@ -251,7 +251,7 @@ Success response:
     "indexPath": "/app/uploads/static-sites/cooliwrapper-sample-b41b7d8c/index.html",
     "artifactPath": "/app/uploads/artifacts/b41b7d8c-0c13-4af5-8d48-747ce8b4c567.tgz",
     "artifactBytes": 723,
-    "artifactUrl": "https://uigendeploy.deploymentsv1.dubsof.com/artifacts/b41b7d8c-0c13-4af5-8d48-747ce8b4c567/site.tgz?token=<artifact-token>"
+    "artifactUrl": "https://uigendeploy.mati.ss/artifacts/b41b7d8c-0c13-4af5-8d48-747ce8b4c567/site.tgz?token=<artifact-token>"
   },
   "warnings": [
     "Static HTML was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized static-site artifact from this wrapper during the Coolify build."
@@ -270,7 +270,7 @@ Query parameters:
 Request:
 
 ```bash
-curl "https://uigendeploy.deploymentsv1.dubsof.com/artifacts/<artifact-id>/site.tgz?token=<artifact-token>" \
+curl "https://uigendeploy.mati.ss/artifacts/<artifact-id>/site.tgz?token=<artifact-token>" \
   -o site.tgz
 ```
 
@@ -286,21 +286,27 @@ Invalid IDs or tokens return `404`.
 
 Uploads a `.tsp` archive and creates a new Coolify Dockerfile application for the generated Python backend.
 
-This endpoint expects the TSP archive to be a ZIP with:
+This endpoint expects the current Tinsel TSP archive to be a ZIP with:
 
 ```text
 manifest.json
-repository/services/api/requirements.txt
-repository/services/api/__init__.py
-repository/services/api/main.py
-repository/services/api/app.py
+services/api/requirements.txt
+services/api/pyproject.toml
+services/api/app/__init__.py
+services/api/app/__main__.py
+services/api/app/main.py
+services/api/app/app.py
 ```
 
-If present, the generated database package at this path is installed into the backend image:
+`services/api/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context.
+
+If present, the generated database package at this path is included in the API package build:
 
 ```text
-repository/databases/todo_db
+services/api/databases/todo_db
 ```
+
+Legacy archives using `repository/services/api` and `repository/databases/todo_db` are also accepted as a fallback.
 
 Content type:
 
@@ -316,7 +322,7 @@ Fields:
 Request:
 
 ```bash
-curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/tsp-deployments \
+curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
   -H "x-api-key: <WRAPPER_API_KEY>" \
   -F "tsp=@./backend.tsp"
 ```
@@ -339,16 +345,17 @@ Success response shape:
   },
   "coolify": {
     "uuid": "coolify-resource-uuid",
-    "domains": "https://todoapp-api-12345678.deploymentsv1.dubsof.com"
+    "domains": "https://todoapp-api-12345678.mati.ss"
   },
   "local": {
     "projectName": "TodoApp",
-    "servicePath": "repository/services/api",
+    "servicePath": "services/api",
+    "layout": "tinsel",
     "resourceSlug": "todoapp-api-12345678",
     "path": "/app/uploads/static-sites/tsp-backends/todoapp-api-12345678",
     "artifactPath": "/app/uploads/artifacts/12345678-aaaa-bbbb-cccc-123456789abc.tgz",
     "artifactBytes": 120000,
-    "artifactUrl": "https://uigendeploy.deploymentsv1.dubsof.com/artifacts/12345678-aaaa-bbbb-cccc-123456789abc/site.tgz?token=<artifact-token>",
+    "artifactUrl": "https://uigendeploy.mati.ss/artifacts/12345678-aaaa-bbbb-cccc-123456789abc/site.tgz?token=<artifact-token>",
     "port": "8080"
   },
   "warnings": [
@@ -360,14 +367,14 @@ Success response shape:
 
 Generated Dockerfile behavior:
 
-1. Uses `python:3.11-slim`.
+1. Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 2. Downloads the tokenized artifact URL with Dockerfile `ADD`.
 3. Extracts the TSP repository.
-4. Copies `repository/services/api` to `/app/api`.
-5. Installs `repository/databases/todo_db` when present.
-6. Installs `repository/services/api/requirements.txt`, excluding the generated relative `../databases/todo_db` line.
+4. Uses `services/api` as the working directory.
+5. Installs the generated API package with `uv pip install --system .`.
+6. Uses the generated package metadata instead of special-casing `requirements.txt`.
 7. Exposes port `8080`.
-8. Starts `python -m api.main`.
+8. Starts `python -m app`.
 
 Optional manifest override:
 
@@ -381,7 +388,7 @@ Optional manifest override:
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://todo-api.deploymentsv1.dubsof.com"
+    "domains": "https://todo-api.mati.ss"
   }
 }
 ```
@@ -413,10 +420,10 @@ Use `manifest` only to override deployment details.
 Example:
 
 ```bash
-curl -X POST https://uigendeploy.deploymentsv1.dubsof.com/deployments \
+curl -X POST https://uigendeploy.mati.ss/deployments \
   -H "x-api-key: <WRAPPER_API_KEY>" \
   -F "zip=@./static-site.zip" \
-  -F 'manifest={"type":"static-html","coolify":{"domains":"https://example.deploymentsv1.dubsof.com"}}'
+  -F 'manifest={"type":"static-html","coolify":{"domains":"https://example.mati.ss"}}'
 ```
 
 Manifest shape:
@@ -430,7 +437,7 @@ Manifest shape:
     "server_uuid": "server-uuid",
     "environment_name": "production",
     "destination_uuid": "destination-uuid",
-    "domains": "https://example.deploymentsv1.dubsof.com"
+    "domains": "https://example.mati.ss"
   }
 }
 ```
@@ -471,14 +478,14 @@ COOLIFY_PROJECT_UUID=<target-project-uuid>
 COOLIFY_SERVER_UUID=<target-server-uuid>
 COOLIFY_ENVIRONMENT_NAME=production
 COOLIFY_DESTINATION_UUID=<target-destination-uuid>
-PUBLIC_BASE_URL=https://uigendeploy.deploymentsv1.dubsof.com
+PUBLIC_BASE_URL=https://uigendeploy.mati.ss
 ```
 
 Optional environment variables:
 
 ```env
 WRAPPER_API_KEY=<wrapper-client-token>
-STATIC_SITE_DOMAIN_SUFFIX=deploymentsv1.dubsof.com
+STATIC_SITE_DOMAIN_SUFFIX=mati.ss
 STATIC_SITE_DOMAIN_SCHEME=https
 STATIC_SITE_ARTIFACT_STORAGE_ROOT=/app/uploads/artifacts
 MAX_ZIP_BYTES=104857600
@@ -498,7 +505,7 @@ expose:
   - "3000"
 ```
 
-Coolify should route `https://uigendeploy.deploymentsv1.dubsof.com` to the container's internal port `3000`.
+Coolify should route `https://uigendeploy.mati.ss` to the container's internal port `3000`.
 
 For local development, use the local override:
 
