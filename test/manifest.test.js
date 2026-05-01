@@ -78,6 +78,46 @@ test("auto-detects static HTML before compose files when both are present", asyn
   }
 });
 
+test("uses Coolify generated domains when static site suffix is empty", async () => {
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-test-"));
+  const storageRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-storage-"));
+  const artifactStorageRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-artifacts-"));
+
+  try {
+    await fs.promises.writeFile(
+      path.join(root, "index.html"),
+      "<!doctype html><html><head><title>Generated Domain</title></head><body>Hello</body></html>"
+    );
+
+    const plan = await buildDeploymentPlan({
+      extractDir: root,
+      requestManifest: {},
+      defaults: {
+        project_uuid: "project",
+        server_uuid: "server",
+        environment_name: "production",
+        destination_uuid: "destination"
+      },
+      staticSites: {
+        storageRoot,
+        artifactStorageRoot,
+        domainSuffix: "",
+        domainScheme: "https",
+        maxArchiveBytes: 1024 * 1024
+      },
+      uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
+      publicBaseUrl: "https://uigendeploy.mati.ss"
+    });
+
+    assert.equal(plan.body.autogenerate_domain, true);
+    assert.equal("domains" in plan.body, false);
+  } finally {
+    await fs.promises.rm(root, { recursive: true, force: true });
+    await fs.promises.rm(storageRoot, { recursive: true, force: true });
+    await fs.promises.rm(artifactStorageRoot, { recursive: true, force: true });
+  }
+});
+
 test("reads nested coolify.json from zipped folder layouts", async () => {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "cooliwrapper-test-"));
   try {

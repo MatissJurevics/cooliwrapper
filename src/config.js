@@ -37,6 +37,13 @@ export function normalizeCoolifyBaseUrl(rawBaseUrl) {
   return url.toString().replace(/\/$/, "");
 }
 
+export function normalizeStaticSiteDomainSuffix(rawDomainSuffix) {
+  if (rawDomainSuffix === undefined) return "deploymentsv1.atrium.dubsof.com";
+
+  const suffix = rawDomainSuffix.trim();
+  return suffix || undefined;
+}
+
 export const config = {
   host: process.env.HOST || "0.0.0.0",
   port: numberFromEnv("PORT", 3000),
@@ -62,7 +69,7 @@ export const config = {
   staticSites: {
     storageRoot: process.env.STATIC_SITE_STORAGE_ROOT || "uploads/static-sites",
     artifactStorageRoot: process.env.STATIC_SITE_ARTIFACT_STORAGE_ROOT || "uploads/artifacts",
-    domainSuffix: process.env.STATIC_SITE_DOMAIN_SUFFIX || "deploymentsv1.atrium.dubsof.com",
+    domainSuffix: normalizeStaticSiteDomainSuffix(process.env.STATIC_SITE_DOMAIN_SUFFIX),
     domainScheme: process.env.STATIC_SITE_DOMAIN_SCHEME || "https",
     maxArchiveBytes: numberFromEnv("MAX_STATIC_ARCHIVE_BYTES", 25 * 1024 * 1024)
   }

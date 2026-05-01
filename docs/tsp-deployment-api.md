@@ -109,7 +109,7 @@ Common fields:
 - `port`: exposed backend port. Defaults to `8080`.
 - `health_check_path`: Coolify health check path. Defaults to `/health`.
 - `instant_deploy`: starts deployment immediately. Defaults to `true`.
-- `coolify.domains`: explicit public domain. If omitted, the API generates `https://<deployment-id>.deploymentsv1.atrium.dubsof.com`.
+- `coolify.domains`: explicit public domain. If omitted, the API uses the wrapper's configured suffix. When `STATIC_SITE_DOMAIN_SUFFIX` is empty, the API asks Coolify to autogenerate the domain.
 
 Coolify project/server/destination defaults are configured server-side, so normal generator clients should not send those values.
 
