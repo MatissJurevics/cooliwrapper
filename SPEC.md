@@ -26,7 +26,7 @@ Output:
 - an extracted local copy retained by the wrapper container volume
 - a tokenized build artifact retained by the wrapper container volume
 
-The API also supports generated TSP Python backend archives through `POST /tsp-deployments`.
+The API also supports generated TSP Python backend archives through `POST /tsp-deployments`. Current Tinsel archives are detected under `services/<service_dir>`; `services/api` is the common case for a service named `Api`.
 
 ## Runtime Behavior
 
@@ -311,27 +311,31 @@ Invalid IDs or tokens return `404`.
 
 Uploads a `.tsp` archive and creates a new Coolify Dockerfile application for the generated Python backend.
 
-This endpoint expects the current Tinsel TSP archive to be a ZIP with:
+This endpoint expects the current Tinsel TSP archive to be a ZIP with one generated service backend:
 
 ```text
 manifest.json
-services/api/requirements.txt
-services/api/pyproject.toml
-services/api/app/__init__.py
-services/api/app/__main__.py
-services/api/app/main.py
-services/api/app/app.py
+services/<service_dir>/requirements.txt
+services/<service_dir>/pyproject.toml
+services/<service_dir>/app/__init__.py
+services/<service_dir>/app/__main__.py
+services/<service_dir>/app/main.py
+services/<service_dir>/app/app.py
 ```
 
-`services/api/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context.
+For a Tinsel service named `Api`, `<service_dir>` is `api`, so the usual generated path is `services/api`.
+
+`services/<service_dir>/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context.
 
 If present, the generated database package at this path is included in the API package build:
 
 ```text
-services/api/databases/todo_db
+services/<service_dir>/databases/todo_db
 ```
 
 Legacy archives using `repository/services/api` and `repository/databases/todo_db` are also accepted as a fallback.
+
+If the archive contains multiple complete service backends under `services/`, the optional request manifest field `service` selects the service directory or Tinsel service name to deploy.
 
 Content type:
 
@@ -396,10 +400,10 @@ Generated Dockerfile behavior:
 2. Downloads the tokenized artifact URL with Dockerfile `ADD`.
 3. Installs `curl` so Coolify's Dockerfile healthcheck can probe `/health`.
 4. Extracts the TSP repository.
-5. Uses `services/api` as the working directory.
+5. Uses the selected `services/<service_dir>` as the working directory.
 6. Installs the generated API package with `uv pip install --system .`.
 7. Uses the generated package metadata instead of special-casing `requirements.txt`.
-8. Exposes port `8080`.
+8. Exposes the port inferred from the generated service Dockerfile `EXPOSE` line, falling back to `app/main.py`, then the optional request manifest, then `8080`.
 9. Starts `python -m app`.
 
 The wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port, generated proxy labels, and configured domains to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy and returned backend URL aligned with the FastAPI port.
@@ -409,6 +413,7 @@ Optional manifest override:
 ```json
 {
   "name": "TodoApp",
+  "service": "api",
   "port": 8080,
   "health_check_path": "/health",
   "coolify": {

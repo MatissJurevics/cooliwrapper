@@ -29,24 +29,26 @@ Authorization: Bearer <WRAPPER_API_KEY>
 
 ## TSP Archive Contract
 
-The archive must contain these paths at the archive root:
+The archive must contain these paths at the archive root for one generated service:
 
 ```text
 manifest.json
-services/api/requirements.txt
-services/api/pyproject.toml
-services/api/app/__init__.py
-services/api/app/__main__.py
-services/api/app/main.py
-services/api/app/app.py
+services/<service_dir>/requirements.txt
+services/<service_dir>/pyproject.toml
+services/<service_dir>/app/__init__.py
+services/<service_dir>/app/__main__.py
+services/<service_dir>/app/main.py
+services/<service_dir>/app/app.py
 ```
 
-`services/api/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context.
+For a Tinsel service named `Api`, `<service_dir>` is `api`, so the usual generated path is `services/api`.
+
+`services/<service_dir>/Dockerfile` may also be present. The deployment API generates an equivalent Coolify Dockerfile around the tokenized artifact URL so Coolify does not need the original archive as build context. The wrapper reads that generated Dockerfile to infer the backend `EXPOSE` port and SQLite data environment lines.
 
 Optional generated database package:
 
 ```text
-services/api/databases/todo_db
+services/<service_dir>/databases/todo_db
 ```
 
 Important generator requirements:
@@ -54,12 +56,14 @@ Important generator requirements:
 - Do not wrap the archive contents in an extra top-level folder.
 - `manifest.json` must be valid JSON.
 - `manifest.json.name` should be the generated app name, for example `TodoApp`.
-- `services/api/pyproject.toml` must support Python 3.12. Current Tinsel output uses `requires-python = ">=3.12"`.
-- The backend must be runnable from `services/api` with `python -m app`.
-- The backend should listen on `0.0.0.0:8080` by default, or on the `port` value sent in the optional request manifest.
+- `services/<service_dir>/pyproject.toml` must support Python 3.12. Current Tinsel output uses `requires-python = ">=3.12"`.
+- The backend must be runnable from `services/<service_dir>` with `python -m app`.
+- The backend should listen on `0.0.0.0:<port>`. The wrapper infers `<port>` from the generated service Dockerfile `EXPOSE` line, falling back to `app/main.py`, then the optional request manifest, then `8080`.
 - The backend should expose `GET /health` by default, or the `health_check_path` value sent in the optional request manifest.
 
-Legacy archives that use `repository/services/api` are still accepted as a fallback, but new Tinsel generators should emit the `services/api` layout above.
+Legacy archives that use `repository/services/api` are still accepted as a fallback, but new Tinsel generators should emit the `services/<service_dir>` layout above.
+
+If the archive contains more than one complete service backend under `services/`, send the optional request manifest field `service` with the service directory or Tinsel service name to deploy, for example `"service": "admin_api"` or `"service": "AdminApi"`.
 
 ## Default Deployment Behavior
 
@@ -92,6 +96,7 @@ Send `manifest` when the generator app needs to override defaults:
 ```json
 {
   "name": "TodoApp",
+  "service": "api",
   "description": "Generated TodoApp API",
   "port": 8080,
   "health_check_path": "/health",
@@ -105,8 +110,9 @@ Send `manifest` when the generator app needs to override defaults:
 Common fields:
 
 - `name`: overrides `manifest.json.name` for resource naming.
+- `service`: selects which `services/<service_dir>` backend to deploy when the archive contains multiple services.
 - `description`: Coolify resource description.
-- `port`: exposed backend port. Defaults to `8080`.
+- `port`: fallback exposed backend port. When the generated Python service exposes a port, the wrapper uses the generated port and warns if this value differs.
 - `health_check_path`: Coolify health check path. Defaults to `/health`.
 - `instant_deploy`: starts deployment immediately. Defaults to `true`.
 - `coolify.domains`: explicit public domain. If omitted, the API uses the wrapper's configured suffix. When `STATIC_SITE_DOMAIN_SUFFIX` is empty, the API asks Coolify to autogenerate the domain.
@@ -152,7 +158,7 @@ type DeployTspResponse = {
   };
   local: {
     projectName: string;
-    servicePath: "services/api" | "repository/services/api";
+    servicePath: string;
     layout: "tinsel" | "legacy";
     resourceSlug: string;
     artifactBytes: number;
@@ -256,7 +262,7 @@ Common failures:
 - `400`: upload is not `.tsp` or `.zip`.
 - `400`: missing `manifest.json`.
 - `400`: invalid `manifest.json`.
-- `400`: missing required backend files under `services/api`.
+- `400`: missing required backend files under `services/<service_dir>`.
 - `400`: invalid optional request `manifest` JSON.
 - `401`: invalid or missing wrapper API key when auth is enabled.
 - `413`: archive or extracted content exceeds configured limits.
@@ -269,7 +275,7 @@ The deployment API generates a Dockerfile that:
 1. Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 2. Downloads a tokenized artifact from the deployment API.
 3. Installs `curl` so Coolify's Dockerfile healthcheck can probe `/health`.
-4. Uses `services/api` as the build working directory.
+4. Uses the selected `services/<service_dir>` as the build working directory.
 5. Installs the generated API package with `uv pip install --system .`.
 6. Uses the generated package metadata instead of special-casing `requirements.txt`.
 7. Starts the backend with `python -m app`.

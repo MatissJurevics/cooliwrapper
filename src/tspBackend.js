@@ -4,20 +4,15 @@ import { HttpError } from "./errors.js";
 import { buildStaticSiteArtifactUrl, buildStaticSiteDomain, createArchiveArtifact, slugify } from "./staticSite.js";
 
 const DEFAULT_PORT = "8080";
+const TINSEL_REQUIRED_FILES = [
+  "requirements.txt",
+  "pyproject.toml",
+  "app/__init__.py",
+  "app/__main__.py",
+  "app/main.py",
+  "app/app.py"
+];
 const TSP_LAYOUTS = [
-  {
-    name: "tinsel",
-    servicePath: "services/api",
-    requiredFiles: [
-      "requirements.txt",
-      "pyproject.toml",
-      "app/__init__.py",
-      "app/__main__.py",
-      "app/main.py",
-      "app/app.py"
-    ],
-    buildDockerfile: buildTinselBackendDockerfile
-  },
   {
     name: "legacy",
     servicePath: "repository/services/api",
@@ -36,7 +31,9 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
   }
 
   const manifest = await readTspManifest(extractDir);
-  const layout = await detectTspLayout(extractDir);
+  const layout = await detectTspLayout(extractDir, { manifest, requestManifest });
+  const runtime = layout.name === "tinsel" ? await inspectTinselBackendRuntime(extractDir, layout.servicePath) : {};
+  const portResolution = resolveBackendPort({ requestManifest, detectedPort: runtime.port });
 
   const projectName = requestManifest.name || manifest.name || "python-backend";
   const shortId = uploadId.replaceAll("-", "").slice(0, 8);
@@ -55,7 +52,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     maxArchiveBytes: staticSites.maxArchiveBytes
   });
   const artifactUrl = buildStaticSiteArtifactUrl(publicBaseUrl, artifact);
-  const port = String(requestManifest.port || requestManifest.coolify?.ports_exposes || DEFAULT_PORT);
+  const port = portResolution.port;
   const coolifyOverrides = requestManifest.coolify || {};
   const domain = buildStaticSiteDomain(uploadId, staticSites);
   const domains = coolifyOverrides.domains || domain;
@@ -66,7 +63,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
     description: requestManifest.description || `TSP Python backend from ${projectName}`,
     instant_deploy: false,
     build_pack: "dockerfile",
-    dockerfile: encodeBase64(layout.buildDockerfile({ artifactUrl, port })),
+    dockerfile: encodeBase64(layout.buildDockerfile({ artifactUrl, port, servicePath: layout.servicePath, runtime })),
     ports_exposes: port,
     health_check_path: requestManifest.health_check_path || requestManifest.healthCheckPath || "/health",
     health_check_port: port,
@@ -102,25 +99,32 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
       port
     },
     warnings: [
+      ...(portResolution.warnings || []),
+      ...(runtime.warnings || []),
       "TSP Python backend was deployed through Coolify's Dockerfile application API. The generated Dockerfile downloads a tokenized TSP artifact from this wrapper during the Coolify build.",
       "The generated backend uses SQLite by default. Unless the generated backend is changed to use an external database, data persistence across rebuilds is not guaranteed."
     ]
   };
 }
 
-function buildTinselBackendDockerfile({ artifactUrl, port }) {
+function buildTinselBackendDockerfile({ artifactUrl, port, servicePath, runtime = {} }) {
+  const sqliteEnvLines = runtime.sqliteEnvLines || [];
+  const sqliteSetup = sqliteEnvLines.length > 0
+    ? ["RUN mkdir -p /data && chmod 0777 /data", ...sqliteEnvLines, ""]
+    : [];
+
   return [
     "FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim",
     "ENV PYTHONDONTWRITEBYTECODE=1",
     "ENV PYTHONUNBUFFERED=1",
-    "ENV TODODB_URL=sqlite:////data/todo_db.sqlite3",
+    ...sqliteSetup,
     "WORKDIR /bundle",
     `ADD ${artifactUrl} /tmp/tsp-repository.tgz`,
     "RUN apt-get update \\",
     "  && apt-get install -y --no-install-recommends curl \\",
     "  && rm -rf /var/lib/apt/lists/*",
     "RUN tar -xzf /tmp/tsp-repository.tgz -C /bundle && rm /tmp/tsp-repository.tgz",
-    "WORKDIR /bundle/services/api",
+    `WORKDIR /bundle/${servicePath}`,
     "RUN uv pip install --system .",
     `EXPOSE ${port}`,
     "CMD [\"python\", \"-m\", \"app\"]",
@@ -169,7 +173,12 @@ async function readTspManifest(extractDir) {
   }
 }
 
-async function detectTspLayout(extractDir) {
+async function detectTspLayout(extractDir, { manifest = {}, requestManifest = {} } = {}) {
+  const tinselLayout = await detectTinselLayout(extractDir, { manifest, requestManifest });
+  if (tinselLayout) {
+    return tinselLayout;
+  }
+
   const results = [];
 
   for (const layout of TSP_LAYOUTS) {
@@ -178,10 +187,6 @@ async function detectTspLayout(extractDir) {
 
     if (missing.length === 0) {
       return layout;
-    }
-
-    if (layout.name === "tinsel" && rootExists) {
-      throw new HttpError(400, `TSP archive requires ${missing[0]}`);
     }
 
     results.push({
@@ -193,6 +198,76 @@ async function detectTspLayout(extractDir) {
 
   const likelyLayout = results.find((result) => result.rootExists) || results[0];
   throw new HttpError(400, `TSP archive requires ${likelyLayout.missing[0]}`);
+}
+
+async function detectTinselLayout(extractDir, { manifest = {}, requestManifest = {} } = {}) {
+  const servicesRoot = path.join(extractDir, "services");
+  if (!(await pathExists(servicesRoot))) return undefined;
+
+  const serviceDirs = await listDirectories(servicesRoot);
+  if (serviceDirs.length === 0) return undefined;
+
+  const candidates = [];
+  const partials = [];
+
+  for (const serviceDir of serviceDirs) {
+    const servicePath = path.posix.join("services", serviceDir);
+    const layout = {
+      name: "tinsel",
+      servicePath,
+      requiredFiles: TINSEL_REQUIRED_FILES,
+      buildDockerfile: buildTinselBackendDockerfile
+    };
+    const missing = await missingRequiredFiles(extractDir, layout);
+
+    if (missing.length === 0) {
+      candidates.push(layout);
+    } else {
+      partials.push({ layout, missing });
+    }
+  }
+
+  const requestedServiceDirs = serviceSelectors(requestManifest);
+  if (requestedServiceDirs.length > 0) {
+    const requested = candidates.find((candidate) => requestedServiceDirs.includes(serviceDirName(candidate.servicePath)));
+    if (requested) return requested;
+
+    const partial = partials.find((candidate) => requestedServiceDirs.includes(serviceDirName(candidate.layout.servicePath)));
+    if (partial) {
+      throw new HttpError(400, `TSP archive requires ${partial.missing[0]}`);
+    }
+
+    throw new HttpError(
+      400,
+      `TSP archive does not contain requested service '${requestedServiceDirs[0]}'. Available services: ${serviceDirs.join(", ")}`
+    );
+  }
+
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  const manifestServices = Array.isArray(manifest.services) ? manifest.services.map((service) => snakeName(String(service))) : [];
+  if (manifestServices.length === 1) {
+    const service = candidates.find((candidate) => manifestServices.includes(serviceDirName(candidate.servicePath)));
+    if (service) return service;
+  }
+
+  if (candidates.length > 1) {
+    throw new HttpError(
+      400,
+      `TSP archive contains multiple service backends; send manifest.service with one of: ${candidates
+        .map((candidate) => serviceDirName(candidate.servicePath))
+        .join(", ")}`
+    );
+  }
+
+  if (partials.length > 0) {
+    const likely = partials.find((candidate) => candidate.layout.servicePath === "services/api") || partials[0];
+    throw new HttpError(400, `TSP archive requires ${likely.missing[0]}`);
+  }
+
+  return undefined;
 }
 
 async function missingRequiredFiles(extractDir, layout) {
@@ -213,6 +288,128 @@ async function missingRequiredFiles(extractDir, layout) {
   }
 
   return missing;
+}
+
+async function inspectTinselBackendRuntime(extractDir, servicePath) {
+  const serviceRoot = path.join(extractDir, servicePath);
+  const dockerfile = await readTextIfExists(path.join(serviceRoot, "Dockerfile"));
+  const mainPy = await readTextIfExists(path.join(serviceRoot, "app", "main.py"));
+  const port = detectExposedPort(dockerfile) || detectPythonUvicornPort(mainPy);
+  const sqliteEnvLines = await collectSqliteEnvLines({ serviceRoot, dockerfile });
+
+  return {
+    port,
+    sqliteEnvLines
+  };
+}
+
+function resolveBackendPort({ requestManifest, detectedPort }) {
+  const requestedRaw = requestManifest.port || requestManifest.coolify?.ports_exposes;
+  const requestedPort = normalizePort(requestedRaw);
+  const archivePort = normalizePort(detectedPort);
+  const warnings = [];
+
+  if (requestedPort && archivePort && requestedPort !== archivePort) {
+    warnings.push(
+      `Request manifest port ${requestedPort} was ignored because the generated Python service exposes ${archivePort}.`
+    );
+  }
+
+  return {
+    port: archivePort || requestedPort || DEFAULT_PORT,
+    warnings
+  };
+}
+
+function detectExposedPort(dockerfile) {
+  const match = dockerfile.match(/^\s*EXPOSE\s+(\d{1,5})\b/m);
+  return match ? match[1] : undefined;
+}
+
+function detectPythonUvicornPort(source) {
+  const match = source.match(/\bport\s*=\s*(\d{1,5})\b/);
+  return match ? match[1] : undefined;
+}
+
+async function collectSqliteEnvLines({ serviceRoot, dockerfile }) {
+  const lines = [];
+  const fromDockerfile = Array.from(
+    dockerfile.matchAll(/^\s*ENV\s+([A-Z][A-Z0-9_]*_URL)=(sqlite:\/\/\/{2}data\/[A-Za-z0-9_.-]+\.sqlite3)\s*$/gm),
+    (match) => `ENV ${match[1]}=${match[2]}`
+  );
+  lines.push(...fromDockerfile);
+
+  if (lines.length === 0) {
+    const databaseRoot = path.join(serviceRoot, "databases");
+    for (const dbDir of await listDirectories(databaseRoot)) {
+      const clientPy = await readTextIfExists(path.join(databaseRoot, dbDir, "client.py"));
+      const match = clientPy.match(/os\.environ\.get\(\s*['"]([A-Z][A-Z0-9_]*_URL)['"]\s*,\s*['"]sqlite:\/\/\/\.\/[^'"]+['"]\s*\)/);
+      if (match) {
+        lines.push(`ENV ${match[1]}=sqlite:////data/${dbDir}.sqlite3`);
+      }
+    }
+  }
+
+  return Array.from(new Set(lines)).sort();
+}
+
+function normalizePort(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new HttpError(400, `Invalid TSP backend port: ${value}`);
+  }
+
+  return String(port);
+}
+
+function serviceSelectors(requestManifest) {
+  const raw =
+    requestManifest.service ||
+    requestManifest.serviceName ||
+    requestManifest.service_name ||
+    requestManifest.servicePath ||
+    requestManifest.service_path;
+
+  if (!raw) return [];
+
+  const value = String(raw).trim().replace(/^\/+|\/+$/g, "");
+  const basename = value.startsWith("services/") ? value.slice("services/".length).split("/")[0] : value.split("/")[0];
+  return Array.from(new Set([basename, snakeName(basename)].filter(Boolean)));
+}
+
+function serviceDirName(servicePath) {
+  return path.posix.basename(servicePath);
+}
+
+function snakeName(value) {
+  return value
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/([a-z\d])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+async function listDirectories(rootDir) {
+  try {
+    const entries = await fs.promises.readdir(rootDir, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function readTextIfExists(filePath) {
+  try {
+    return await fs.promises.readFile(filePath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }
 }
 
 async function pathExists(filePath) {
