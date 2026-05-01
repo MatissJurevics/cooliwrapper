@@ -131,7 +131,7 @@ Response includes:
 
 ### `POST /tsp-deployments`
 
-Uploads a `.tsp` archive, validates the generated Python backend at `services/api`, and creates a new Coolify Dockerfile application on port `8080`.
+Uploads a `.tsp` archive, validates the generated Python backend under `services/<service>`, and creates a new Coolify Dockerfile application. `services/api` is the normal path when the Tinsel service is named `Api`; other generated service names such as `services/admin_api` are also accepted.
 
 ```bash
 curl -X POST https://uigendeploy.mati.ss/tsp-deployments \
@@ -145,9 +145,11 @@ The generated Dockerfile downloads a tokenized TSP artifact from this wrapper du
 python -m app
 ```
 
+The wrapper infers the backend port from the generated service Dockerfile `EXPOSE` line, falling back to `app/main.py`, then the optional request manifest, then `8080`. If a request manifest sends a different port than the generated Python service exposes, the wrapper uses the generated service port and returns a warning.
+
 Legacy archives that use `repository/services/api` are still accepted as a fallback.
 
-The backend deployment exposes the app on port `8080`. The wrapper patches Python backend domains after creation so generated and explicit Coolify domains include the backend port, for example `http://<resource>.18.202.19.238.sslip.io:8080`.
+The backend deployment exposes the generated app port. The wrapper patches Python backend domains after creation so generated and explicit Coolify domains include that backend port, for example `http://<resource>.18.202.19.238.sslip.io:8080`.
 
 The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
 

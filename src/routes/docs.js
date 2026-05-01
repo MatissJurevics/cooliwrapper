@@ -227,6 +227,7 @@ export function renderDocsIndex(publicBaseUrl = "https://uigendeploy.mati.ss") {
 
     <section>
       <h2>TSP Backend Upload</h2>
+      <p>Generated Python backends are detected under <code>services/&lt;service_dir&gt;</code>. The wrapper uses the generated service path and exposed port, and <code>manifest.service</code> selects a backend when the archive contains more than one service.</p>
       <pre><code>curl -X POST ${baseUrl}/tsp-deployments \\
   -H "x-api-key: $WRAPPER_API_KEY" \\
   -F "tsp=@./backend.tsp"</code></pre>
@@ -399,7 +400,7 @@ export function buildOpenApiDocument(publicBaseUrl = "https://uigendeploy.mati.s
                     },
                     manifest: {
                       type: "string",
-                      description: "Optional JSON string with Coolify overrides."
+                      description: "Optional JSON string with Coolify overrides. Use service to select a generated services/<service_dir> backend when needed."
                     }
                   },
                   required: ["tsp"]

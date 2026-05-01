@@ -40,6 +40,8 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
     assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM ghcr\.io\/astral-sh\/uv:python3\.12-bookworm-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
+    assert.match(dockerfile, /RUN mkdir -p \/data && chmod 0777 \/data/);
+    assert.ok(dockerfile.includes("ENV TODODB_URL=sqlite:////data/todo_db.sqlite3"));
     assert.match(dockerfile, /WORKDIR \/bundle\/services\/api/);
     assert.match(dockerfile, /RUN uv pip install --system \./);
     assert.match(dockerfile, /CMD \["python", "-m", "app"\]/);
@@ -48,6 +50,43 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
     assert.equal(plan.local.layout, "tinsel");
     assert.equal(plan.local.artifactPath, path.join(artifactStorageRoot, "12345678-aaaa-bbbb-cccc-123456789abc.tgz"));
     assert.equal((await fs.promises.stat(plan.local.artifactPath)).isFile(), true);
+  } finally {
+    await cleanupTestRoots({ root, storageRoot, artifactStorageRoot });
+  }
+});
+
+test("uses the generated Python service path and exposed port instead of hard-coded defaults", async () => {
+  const { root, storageRoot, artifactStorageRoot } = await createTestRoots();
+
+  try {
+    await writeCurrentTinselArchive(root, {
+      serviceDir: "admin_api",
+      projectName: "AdminApp",
+      port: 8000,
+      dbDir: "project_db",
+      dbEnv: "PROJECTDB_URL"
+    });
+
+    const plan = await buildTspBackendPlan({
+      extractDir: root,
+      requestManifest: { port: 8080 },
+      defaults: coolifyDefaults(),
+      staticSites: staticSiteConfig({ storageRoot, artifactStorageRoot }),
+      uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
+      publicBaseUrl: "https://uigendeploy.mati.ss"
+    });
+
+    const dockerfile = Buffer.from(plan.body.dockerfile, "base64").toString("utf8");
+    assert.equal(plan.body.ports_exposes, "8000");
+    assert.equal(plan.postCreateUpdate.ports_exposes, "8000");
+    assert.equal(plan.postCreateProxyPort, "8000");
+    assert.equal(plan.postCreateDomainPort, "8000");
+    assert.equal(plan.local.servicePath, "services/admin_api");
+    assert.equal(plan.local.port, "8000");
+    assert.match(dockerfile, /WORKDIR \/bundle\/services\/admin_api/);
+    assert.match(dockerfile, /EXPOSE 8000/);
+    assert.ok(dockerfile.includes("ENV PROJECTDB_URL=sqlite:////data/project_db.sqlite3"));
+    assert.ok(plan.warnings.some((warning) => warning.includes("Request manifest port 8080 was ignored")));
   } finally {
     await cleanupTestRoots({ root, storageRoot, artifactStorageRoot });
   }
@@ -148,12 +187,15 @@ async function createTestRoots() {
   };
 }
 
-async function writeCurrentTinselArchive(root) {
-  await fs.promises.writeFile(path.join(root, "manifest.json"), JSON.stringify({ name: "TodoApp" }));
+async function writeCurrentTinselArchive(
+  root,
+  { serviceDir = "api", projectName = "TodoApp", port = 8080, dbDir = "todo_db", dbEnv = "TODODB_URL" } = {}
+) {
+  await fs.promises.writeFile(path.join(root, "manifest.json"), JSON.stringify({ name: projectName, services: [serviceDir] }));
 
-  const apiRoot = path.join(root, "services", "api");
+  const apiRoot = path.join(root, "services", serviceDir);
   const appRoot = path.join(apiRoot, "app");
-  const dbRoot = path.join(apiRoot, "databases", "todo_db");
+  const dbRoot = path.join(apiRoot, "databases", dbDir);
   await fs.promises.mkdir(appRoot, { recursive: true });
   await fs.promises.mkdir(dbRoot, { recursive: true });
   await fs.promises.writeFile(path.join(apiRoot, "requirements.txt"), "fastapi>=0.100\n-e ./databases\n");
@@ -161,12 +203,21 @@ async function writeCurrentTinselArchive(root) {
     path.join(apiRoot, "pyproject.toml"),
     "[project]\nname='todo-api'\nversion='0.1.0'\nrequires-python='>=3.12'\n"
   );
-  await fs.promises.writeFile(path.join(apiRoot, "Dockerfile"), "FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim\n");
+  await fs.promises.writeFile(
+    path.join(apiRoot, "Dockerfile"),
+    [
+      "FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim",
+      "RUN mkdir -p /data && chmod 0777 /data",
+      `ENV ${dbEnv}=sqlite:////data/${dbDir}.sqlite3`,
+      `EXPOSE ${port}`,
+      ""
+    ].join("\n")
+  );
   await fs.promises.writeFile(path.join(appRoot, "__init__.py"), "");
   await fs.promises.writeFile(path.join(appRoot, "__main__.py"), "from .main import main\nmain()\n");
-  await fs.promises.writeFile(path.join(appRoot, "main.py"), "def main():\n    print('ok')\n");
+  await fs.promises.writeFile(path.join(appRoot, "main.py"), `def main():\n    print('ok on ${port}')\n`);
   await fs.promises.writeFile(path.join(appRoot, "app.py"), "app = object()\n");
-  await fs.promises.writeFile(path.join(dbRoot, "pyproject.toml"), "[project]\nname='todo_db'\nversion='0.1.0'\n");
+  await fs.promises.writeFile(path.join(dbRoot, "pyproject.toml"), `[project]\nname='${dbDir}'\nversion='0.1.0'\n`);
 }
 
 async function writeLegacyArchive(root) {
