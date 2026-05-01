@@ -170,10 +170,11 @@ async function createApplicationWithPostCreateSteps(plan, coolifyClient) {
   const result = await coolifyClient.createApplication(plan.mode, plan.body);
   const uuid = result?.uuid;
   const postCreate = {};
+  let postCreateUpdateBody;
 
   if (uuid && plan.postCreateUpdate) {
-    const updateBody = await buildPostCreateUpdateBody(plan, uuid, coolifyClient);
-    postCreate.update = await coolifyClient.updateApplication(uuid, updateBody);
+    postCreateUpdateBody = await buildPostCreateUpdateBody(plan, uuid, coolifyClient);
+    postCreate.update = await coolifyClient.updateApplication(uuid, postCreateUpdateBody);
   }
 
   if (uuid && plan.postCreateDeploy) {
@@ -184,8 +185,19 @@ async function createApplicationWithPostCreateSteps(plan, coolifyClient) {
     return result;
   }
 
+  const finalResult = {
+    ...result
+  };
+
+  if (postCreateUpdateBody?.domains) {
+    finalResult.domains = postCreateUpdateBody.domains;
+    if (finalResult.fqdn) {
+      finalResult.fqdn = postCreateUpdateBody.domains;
+    }
+  }
+
   return {
-    ...result,
+    ...finalResult,
     postCreate
   };
 }

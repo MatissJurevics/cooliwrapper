@@ -233,7 +233,7 @@ Successful requests return `202 Accepted`.
 }
 ```
 
-Client apps should treat `coolify.domains` as the public backend URL when present.
+Client apps should treat `coolify.domains` as the public backend URL when present. For Python backends, the wrapper patches generated and explicit Coolify domains after creation so the returned backend URL includes the exposed backend port, for example `http://<resource>.18.202.19.238.sslip.io:8080`.
 
 `202 Accepted` means the wrapper created the Coolify resource and requested an instant deploy. The backend can still take time to build and become healthy in Coolify.
 
@@ -274,6 +274,6 @@ The deployment API generates a Dockerfile that:
 6. Uses the generated package metadata instead of special-casing `requirements.txt`.
 7. Starts the backend with `python -m app`.
 
-The deployment wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port and generated proxy labels to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy aligned with the FastAPI port.
+The deployment wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port, generated proxy labels, and configured domains to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy and returned URL aligned with the FastAPI port.
 
 Generated SQLite databases are not durable by default. For production persistence, generate the backend to use an external database or add persistent storage support.

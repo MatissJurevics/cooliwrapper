@@ -88,6 +88,7 @@ export async function buildTspBackendPlan({ extractDir, requestManifest, default
       health_check_enabled: true
     }),
     postCreateProxyPort: port,
+    postCreateDomainPort: port,
     postCreateDeploy: desiredInstantDeploy,
     local: {
       projectName,

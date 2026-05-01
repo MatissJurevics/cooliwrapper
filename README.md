@@ -147,7 +147,7 @@ python -m app
 
 Legacy archives that use `repository/services/api` are still accepted as a fallback.
 
-The backend deployment exposes the app internally on port `8080`. When `STATIC_SITE_DOMAIN_SUFFIX` is empty, Coolify autogenerates the public domain.
+The backend deployment exposes the app on port `8080`. The wrapper patches Python backend domains after creation so generated and explicit Coolify domains include the backend port, for example `http://<resource>.18.202.19.238.sslip.io:8080`.
 
 The current generated TSP backend uses SQLite by default. For durable production data, point the generated backend at an external database or adjust the generated backend/container to use persistent storage.
 

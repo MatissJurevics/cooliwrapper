@@ -402,7 +402,7 @@ Generated Dockerfile behavior:
 8. Exposes port `8080`.
 9. Starts `python -m app`.
 
-The wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port and generated proxy labels to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy aligned with the FastAPI port.
+The wrapper creates TSP applications with immediate deploy disabled, patches the Coolify exposed port, generated proxy labels, and configured domains to the backend port, then triggers deployment when `instant_deploy` is true. This keeps Coolify's public proxy and returned backend URL aligned with the FastAPI port.
 
 Optional manifest override:
 

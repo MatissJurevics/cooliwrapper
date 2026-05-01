@@ -232,6 +232,7 @@ test("runs application post-create update and deploy steps", async () => {
     ["deploy", { uuid: "app-uuid" }]
   ]);
   assert.equal(result.result.uuid, "app-uuid");
+  assert.equal(result.result.domains, "http://app.example.test:8080");
   assert.equal(result.result.postCreate.update.uuid, "app-uuid");
   assert.equal(result.result.postCreate.deploy.deployment_uuid, "deployment-uuid");
 });

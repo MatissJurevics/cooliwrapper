@@ -36,7 +36,7 @@ test("creates a python 3.12 dockerfile application plan for current Tinsel TSP b
       health_check_enabled: true
     });
     assert.equal(plan.postCreateProxyPort, "8080");
-    assert.equal("postCreateDomainPort" in plan, false);
+    assert.equal(plan.postCreateDomainPort, "8080");
     assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM ghcr\.io\/astral-sh\/uv:python3\.12-bookworm-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
@@ -73,6 +73,7 @@ test("keeps legacy repository/services/api TSP backends working", async () => {
     assert.equal(plan.body.domains, "https://12345678-aaaa-bbbb-cccc-123456789abc.deploymentsv1.atrium.dubsof.com");
     assert.equal(plan.body.instant_deploy, false);
     assert.equal(plan.postCreateUpdate.ports_exposes, "8080");
+    assert.equal(plan.postCreateDomainPort, "8080");
     assert.equal(plan.postCreateDeploy, true);
     assert.match(dockerfile, /FROM python:3\.11-slim/);
     assert.match(dockerfile, /apt-get install -y --no-install-recommends curl/);
@@ -80,6 +81,35 @@ test("keeps legacy repository/services/api TSP backends working", async () => {
     assert.match(dockerfile, /CMD \["python", "-m", "api\.main"\]/);
     assert.equal(plan.local.servicePath, "repository/services/api");
     assert.equal(plan.local.layout, "legacy");
+  } finally {
+    await cleanupTestRoots({ root, storageRoot, artifactStorageRoot });
+  }
+});
+
+test("adds the backend port to Coolify generated TSP domains after create", async () => {
+  const { root, storageRoot, artifactStorageRoot } = await createTestRoots();
+
+  try {
+    await writeCurrentTinselArchive(root);
+
+    const plan = await buildTspBackendPlan({
+      extractDir: root,
+      requestManifest: {},
+      defaults: coolifyDefaults(),
+      staticSites: {
+        storageRoot,
+        artifactStorageRoot,
+        domainSuffix: "",
+        domainScheme: "https",
+        maxArchiveBytes: 1024 * 1024
+      },
+      uploadId: "12345678-aaaa-bbbb-cccc-123456789abc",
+      publicBaseUrl: "https://uigendeploy.mati.ss"
+    });
+
+    assert.equal(plan.body.autogenerate_domain, true);
+    assert.equal("domains" in plan.body, false);
+    assert.equal(plan.postCreateDomainPort, "8080");
   } finally {
     await cleanupTestRoots({ root, storageRoot, artifactStorageRoot });
   }
